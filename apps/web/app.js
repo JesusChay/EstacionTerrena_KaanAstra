@@ -25,6 +25,24 @@ const fieldMap = {
   decouplingValue: (data) => data.decouplingStatus ? 'Activo' : 'Inactivo'
 };
 
+const temperatureChart = new Chart(document.getElementById('temperatureChart'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [createDataset('Temperatura', '#ff9800')]
+  },
+  options: buildChartOptions()
+});
+
+const humidityChart = new Chart(document.getElementById('humidityChart'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [createDataset('Humedad', '#4caf50')]
+  },
+  options: buildChartOptions()
+});
+
 const environmentChart = new Chart(document.getElementById('environmentChart'), {
   type: 'line',
   data: {
@@ -163,6 +181,14 @@ function trimChartState() {
 }
 
 function updateCharts() {
+  temperatureChart.data.labels = [...chartState.labels];
+  temperatureChart.data.datasets[0].data = [...chartState.temperature];
+  temperatureChart.update();
+
+  humidityChart.data.labels = [...chartState.labels];
+  humidityChart.data.datasets[0].data = [...chartState.humidity];
+  humidityChart.update();
+
   environmentChart.data.labels = [...chartState.labels];
   environmentChart.data.datasets[0].data = [...chartState.temperature];
   environmentChart.data.datasets[1].data = [...chartState.humidity];
@@ -199,6 +225,7 @@ function buildChartOptions() {
   return {
     responsive: true,
     maintainAspectRatio: false,
+    animation: false,
     interaction: {
       intersect: false,
       mode: 'index'
@@ -206,21 +233,21 @@ function buildChartOptions() {
     plugins: {
       legend: {
         labels: {
-          color: '#edf3ef',
+          color: '#ffffff',
           font: {
-            family: 'IBM Plex Mono'
+            family: 'Arial'
           }
         }
       }
     },
     scales: {
       x: {
-        ticks: { color: '#9ab3ae' },
-        grid: { color: 'rgba(255,255,255,0.06)' }
+        ticks: { color: '#ffffff', font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.08)' }
       },
       y: {
-        ticks: { color: '#9ab3ae' },
-        grid: { color: 'rgba(255,255,255,0.06)' }
+        ticks: { color: '#ffffff', font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.08)' }
       }
     }
   };

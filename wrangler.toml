@@ -1,0 +1,7 @@
+# Pages config for the Git-integrated web project
+name = "kaan-astra-groundstation-web-git"
+compatibility_date = "2026-04-03"
+pages_build_output_dir = "apps/web"
+
+[env]
+production = { }

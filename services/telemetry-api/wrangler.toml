@@ -4,3 +4,7 @@ compatibility_date = "2026-04-02"
 
 [vars]
 RECENT_LIMIT = "120"
+
+[[kv_namespaces]]
+binding = "TELEMETRY_CACHE"
+id = "805ce53022194ea58d040da9b8e5a30b"

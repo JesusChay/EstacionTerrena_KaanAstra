@@ -1,6 +1,3 @@
-let latestTelemetry = null;
-let recentTelemetry = [];
-
 const allowedFields = [
   'time',
   'speed',
@@ -39,10 +36,11 @@ export default {
 
     try {
       if (request.method === 'GET' && url.pathname === '/api/health') {
+        const latestTelemetry = await readLatestTelemetry(env);
         return json({
           ok: true,
           service: 'telemetry-api',
-          persistence: 'memory-temporary',
+          persistence: env.TELEMETRY_CACHE ? 'cloudflare-kv' : 'memory-temporary',
           latestAvailable: Boolean(latestTelemetry)
         });
       }
@@ -60,6 +58,7 @@ export default {
       }
 
       if (request.method === 'GET' && url.pathname === '/api/latest') {
+        const latestTelemetry = await readLatestTelemetry(env);
         if (!latestTelemetry) {
           return json({ ok: false, message: 'No telemetry available yet.' }, 404);
         }
@@ -71,11 +70,12 @@ export default {
         const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '24', 10);
         const maxLimit = Number.parseInt(env.RECENT_LIMIT || '120', 10);
         const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), maxLimit) : 24;
+        const recentTelemetry = await readRecentTelemetry(env);
 
         return json({
           ok: true,
           telemetry: recentTelemetry.slice(-limit),
-          persistence: 'memory-temporary'
+          persistence: env.TELEMETRY_CACHE ? 'cloudflare-kv' : 'memory-temporary'
         });
       }
 
@@ -89,15 +89,12 @@ export default {
         const incomingTelemetry = body && typeof body === 'object' && body.telemetry ? body.telemetry : body;
         const telemetry = normalizeTelemetry(incomingTelemetry);
 
-        latestTelemetry = {
+        const latestTelemetry = {
           ...telemetry,
           receivedAtUtc: new Date().toISOString()
         };
 
-        recentTelemetry.push(latestTelemetry);
-        if (recentTelemetry.length > Number.parseInt(env.RECENT_LIMIT || '120', 10)) {
-          recentTelemetry = recentTelemetry.slice(-Number.parseInt(env.RECENT_LIMIT || '120', 10));
-        }
+        const recentTelemetry = await writeTelemetry(env, latestTelemetry);
 
         return json({
           ok: true,
@@ -138,6 +135,42 @@ function normalizeTelemetry(payload) {
   }
 
   return telemetry;
+}
+
+async function readLatestTelemetry(env) {
+  if (!env.TELEMETRY_CACHE) {
+    return null;
+  }
+
+  const raw = await env.TELEMETRY_CACHE.get('latest');
+  return raw ? JSON.parse(raw) : null;
+}
+
+async function readRecentTelemetry(env) {
+  if (!env.TELEMETRY_CACHE) {
+    return [];
+  }
+
+  const raw = await env.TELEMETRY_CACHE.get('recent');
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function writeTelemetry(env, latestTelemetry) {
+  if (!env.TELEMETRY_CACHE) {
+    return [latestTelemetry];
+  }
+
+  const maxLimit = Number.parseInt(env.RECENT_LIMIT || '120', 10);
+  const recentTelemetry = await readRecentTelemetry(env);
+  recentTelemetry.push(latestTelemetry);
+  const boundedTelemetry = recentTelemetry.slice(-maxLimit);
+
+  await Promise.all([
+    env.TELEMETRY_CACHE.put('latest', JSON.stringify(latestTelemetry)),
+    env.TELEMETRY_CACHE.put('recent', JSON.stringify(boundedTelemetry))
+  ]);
+
+  return boundedTelemetry;
 }
 
 function normalizeScalar(value) {
