@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node -e \"console.log('No build step required')\"",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "d1:migrate": "wrangler d1 migrations apply kaan-astra-telemetry"
   },
   "devDependencies": {
     "wrangler": "^3.114.0"

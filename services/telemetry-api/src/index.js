@@ -26,8 +26,35 @@ const allowedFields = [
   'decouplingStatus'
 ];
 
-let memoryLatestTelemetry = null;
-let memoryRecentTelemetry = [];
+const selectFields = [
+  'id',
+  'time',
+  'speed',
+  'temperature',
+  'humidity',
+  'pressure',
+  'accelx',
+  'accely',
+  'accelz',
+  'atotal',
+  'gyrox',
+  'gyroy',
+  'gyroz',
+  'gyrox_rad AS gyroxRad',
+  'gyroy_rad AS gyroyRad',
+  'gyroz_rad AS gyrozRad',
+  'magx',
+  'magy',
+  'magz',
+  'altitude',
+  'latitude',
+  'longitude',
+  'velocity',
+  'velocity_z AS velocityZ',
+  'relative_altitude AS relativeAltitude',
+  'decoupling_status AS decouplingStatus',
+  'received_at_utc AS receivedAtUtc'
+].join(', ');
 
 export default {
   async fetch(request, env) {
@@ -39,11 +66,14 @@ export default {
 
     try {
       if (request.method === 'GET' && url.pathname === '/api/health') {
-        const latestTelemetry = await readLatestTelemetry(env);
+        const databaseAvailable = Boolean(env.TELEMETRY_DB);
+        const latestTelemetry = databaseAvailable ? await readLatestTelemetry(env) : null;
+
         return json({
           ok: true,
           service: 'telemetry-api',
-          persistence: env.TELEMETRY_CACHE ? 'cloudflare-kv' : 'memory-temporary',
+          persistence: databaseAvailable ? 'cloudflare-d1' : 'not-configured',
+          databaseAvailable,
           latestAvailable: Boolean(latestTelemetry)
         });
       }
@@ -53,11 +83,16 @@ export default {
           fields: allowedFields,
           required: [],
           accepts: 'application/json',
+          persistence: 'cloudflare-d1',
           notes: [
             'El contrato replica el payloadData actual de la estacion terrena.',
-            'La persistencia actual es temporal en memoria y sera reemplazada por BD.'
+            'El Worker guarda cada muestra en D1 para exponer latest e historial reciente.'
           ]
         });
+      }
+
+      if (!env.TELEMETRY_DB) {
+        return json({ ok: false, message: 'TELEMETRY_DB binding is not configured.' }, 503);
       }
 
       if (request.method === 'GET' && url.pathname === '/api/latest') {
@@ -73,12 +108,12 @@ export default {
         const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '24', 10);
         const maxLimit = Number.parseInt(env.RECENT_LIMIT || '120', 10);
         const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), maxLimit) : 24;
-        const recentTelemetry = await readRecentTelemetry(env);
+        const recentTelemetry = await readRecentTelemetry(env, limit);
 
         return json({
           ok: true,
-          telemetry: recentTelemetry.slice(-limit),
-          persistence: env.TELEMETRY_CACHE ? 'cloudflare-kv' : 'memory-temporary'
+          telemetry: recentTelemetry,
+          persistence: 'cloudflare-d1'
         });
       }
 
@@ -91,13 +126,7 @@ export default {
         const body = await request.json();
         const incomingTelemetry = body && typeof body === 'object' && body.telemetry ? body.telemetry : body;
         const telemetry = normalizeTelemetry(incomingTelemetry);
-
-        const latestTelemetry = {
-          ...telemetry,
-          receivedAtUtc: new Date().toISOString()
-        };
-
-        const recentTelemetry = await writeTelemetry(env, latestTelemetry);
+        const latestTelemetry = await insertTelemetry(env, telemetry);
 
         return json({
           ok: true,
@@ -140,57 +169,116 @@ function normalizeTelemetry(payload) {
   return telemetry;
 }
 
+async function insertTelemetry(env, telemetry) {
+  const receivedAtUtc = new Date().toISOString();
+  const sql = `
+    INSERT INTO telemetry (
+      time, speed, temperature, humidity, pressure,
+      accelx, accely, accelz, atotal,
+      gyrox, gyroy, gyroz, gyrox_rad, gyroy_rad, gyroz_rad,
+      magx, magy, magz,
+      altitude, latitude, longitude,
+      velocity, velocity_z, relative_altitude,
+      decoupling_status, received_at_utc
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    telemetry.time ?? null,
+    telemetry.speed ?? null,
+    telemetry.temperature ?? null,
+    telemetry.humidity ?? null,
+    telemetry.pressure ?? null,
+    telemetry.accelx ?? null,
+    telemetry.accely ?? null,
+    telemetry.accelz ?? null,
+    telemetry.atotal ?? null,
+    telemetry.gyrox ?? null,
+    telemetry.gyroy ?? null,
+    telemetry.gyroz ?? null,
+    telemetry.gyroxRad ?? null,
+    telemetry.gyroyRad ?? null,
+    telemetry.gyrozRad ?? null,
+    telemetry.magx ?? null,
+    telemetry.magy ?? null,
+    telemetry.magz ?? null,
+    telemetry.altitude ?? null,
+    telemetry.latitude ?? null,
+    telemetry.longitude ?? null,
+    telemetry.velocity ?? null,
+    telemetry.velocityZ ?? null,
+    telemetry.relativeAltitude ?? null,
+    telemetry.decouplingStatus ? 1 : 0,
+    receivedAtUtc
+  ];
+
+  const result = await env.TELEMETRY_DB.prepare(sql).bind(...values).run();
+  const insertedId = result.meta.last_row_id;
+  const insertedTelemetry = await env.TELEMETRY_DB
+    .prepare(`SELECT ${selectFields} FROM telemetry WHERE id = ? LIMIT 1`)
+    .bind(insertedId)
+    .first();
+
+  return mapTelemetryRow(insertedTelemetry);
+}
+
 async function readLatestTelemetry(env) {
-  if (!env.TELEMETRY_CACHE) {
-    return memoryLatestTelemetry;
-  }
+  const row = await env.TELEMETRY_DB
+    .prepare(`SELECT ${selectFields} FROM telemetry ORDER BY id DESC LIMIT 1`)
+    .first();
 
-  try {
-    const raw = await env.TELEMETRY_CACHE.get('latest');
-    return raw ? JSON.parse(raw) : memoryLatestTelemetry;
-  } catch (error) {
-    return memoryLatestTelemetry;
-  }
+  return mapTelemetryRow(row);
 }
 
-async function readRecentTelemetry(env) {
-  if (!env.TELEMETRY_CACHE) {
-    return memoryRecentTelemetry;
-  }
+async function readRecentTelemetry(env, limit) {
+  const result = await env.TELEMETRY_DB
+    .prepare(`SELECT ${selectFields} FROM telemetry ORDER BY id DESC LIMIT ?`)
+    .bind(limit)
+    .all();
 
-  try {
-    const raw = await env.TELEMETRY_CACHE.get('recent');
-    return raw ? JSON.parse(raw) : memoryRecentTelemetry;
-  } catch (error) {
-    return memoryRecentTelemetry;
-  }
+  const rows = Array.isArray(result.results) ? result.results : [];
+  return rows.map(mapTelemetryRow).reverse();
 }
 
-async function writeTelemetry(env, latestTelemetry) {
-  memoryLatestTelemetry = latestTelemetry;
-  memoryRecentTelemetry.push(latestTelemetry);
-  const maxLimit = Number.parseInt(env.RECENT_LIMIT || '120', 10);
-  memoryRecentTelemetry = memoryRecentTelemetry.slice(-maxLimit);
-
-  if (!env.TELEMETRY_CACHE) {
-    return memoryRecentTelemetry;
+function mapTelemetryRow(row) {
+  if (!row) {
+    return null;
   }
 
-  try {
-    await Promise.all([
-      env.TELEMETRY_CACHE.put('latest', JSON.stringify(latestTelemetry)),
-      env.TELEMETRY_CACHE.put('recent', JSON.stringify(memoryRecentTelemetry))
-    ]);
-  } catch (error) {
-    console.warn(`KV no disponible, usando memoria temporal: ${error.message}`);
-  }
-
-  return memoryRecentTelemetry;
+  return {
+    id: row.id,
+    time: row.time,
+    speed: row.speed,
+    temperature: row.temperature,
+    humidity: row.humidity,
+    pressure: row.pressure,
+    accelx: row.accelx,
+    accely: row.accely,
+    accelz: row.accelz,
+    atotal: row.atotal,
+    gyrox: row.gyrox,
+    gyroy: row.gyroy,
+    gyroz: row.gyroz,
+    gyroxRad: row.gyroxRad,
+    gyroyRad: row.gyroyRad,
+    gyrozRad: row.gyrozRad,
+    magx: row.magx,
+    magy: row.magy,
+    magz: row.magz,
+    altitude: row.altitude,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    velocity: row.velocity,
+    velocityZ: row.velocityZ,
+    relativeAltitude: row.relativeAltitude,
+    decouplingStatus: Boolean(row.decouplingStatus),
+    receivedAtUtc: row.receivedAtUtc
+  };
 }
 
 function normalizeScalar(value) {
   if (value === undefined || value === null || value === '') {
-    return undefined;
+    return null;
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {

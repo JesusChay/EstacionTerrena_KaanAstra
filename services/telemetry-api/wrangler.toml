@@ -5,6 +5,10 @@ compatibility_date = "2026-04-02"
 [vars]
 RECENT_LIMIT = "120"
 
-[[kv_namespaces]]
-binding = "TELEMETRY_CACHE"
-id = "805ce53022194ea58d040da9b8e5a30b"
+# Configura tu base D1 antes de desplegar:
+# 1) npx wrangler d1 create kaan-astra-telemetry
+# 2) copia el database_id y reemplaza el valor de abajo
+[[d1_databases]]
+binding = "TELEMETRY_DB"
+database_name = "kaan-astra-telemetry"
+database_id = "81a9331a-8828-4225-9ff5-5d304e80cbfa"

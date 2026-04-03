@@ -1,6 +1,6 @@
 const API_BASE = window.APP_CONFIG?.apiBaseUrl || '/api';
 const HISTORY_LIMIT = 30;
-const REFRESH_INTERVAL_MS = 1000;
+const REFRESH_INTERVAL_MS = 500;
 
 const chartState = {
   labels: [],
