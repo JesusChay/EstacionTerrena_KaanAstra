@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KA'AN ASTRA Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="connection-status">
+    <div id="payloadStatus">⏳ Esperando datos de carga...</div>
+  </div>
+
+  <div class="banner">
+    <div class="titulo">
+      <img src="assets/logo.png" alt="Logo" class="logo">
+      <span class="titulo-texto">KA'AN ASTRA</span>
+    </div>
+    <div class="serial-port-selector">
+      <select id="serialPortSelect">
+        <option value="">Seleccionar Puerto Serial</option>
+        <option value="simulation">Modo Simulación</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid-container">
+    <div class="panel">
+      <h2>Temperatura</h2>
+      <canvas id="temperatureChart"></canvas>
+      <div class="value-label" id="tempValue">0.00°C</div>
+    </div>
+
+    <div class="panel">
+      <h2>Humedad</h2>
+      <canvas id="humidityChart"></canvas>
+      <div class="value-label" id="humidityValue">0.00%</div>
+    </div>
+
+    <div class="panel">
+      <h2>Presión</h2>
+      <canvas id="pressureChart"></canvas>
+      <div class="value-label" id="pressureValue">0.00 hPa</div>
+    </div>
+
+    <div class="panel">
+      <h2>Acelerómetro</h2>
+      <canvas id="accelChart"></canvas>
+      <div class="value-label"><span id="accelValue">0.00 g</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Altitud</h2>
+      <canvas id="altitudeChart"></canvas>
+      <div class="value-label">Alternativa: <span id="altitudeValue">0.00 m</span></div>
+      <div class="value-label">Absoluta: <span id="absoluteAltitudeValue">0.00 m</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Viento</h2>
+      <canvas id="windChart"></canvas>
+      <div class="value-label" id="windValue">0.00 m/s</div>
+    </div>
+
+    <div class="panel">
+      <h2>Velocidad</h2>
+      <canvas id="velocityChart"></canvas>
+      <div class="value-label"><span id="velocityValue">0.00 m/s</span></div>
+    </div>
+  </div>
+
+  <div class="report-button-container">
+    <button id="generateReportBtn">Generar Reporte</button>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

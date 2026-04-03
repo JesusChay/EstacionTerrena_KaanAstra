@@ -1,0 +1,50 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  background-color: #1e1e1e;
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+}
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px;
+  background-image: url('assets/temple-kukulkan.jpeg');
+  background-size: cover;
+  background-position: center;
+}
+.titulo {
+  display: flex;
+  align-items: center;
+  margin-left: 10px;
+}
+.logo {
+  height: 60px;
+  width: 60px;
+  margin-right: 15px;
+}
+.titulo-texto {
+  font-size: 20px;
+  font-weight: bold;
+}
+.serial-port-selector {
+  margin-right: 20px;
+}
+#serialPortSelect {
+  background-color: #2d2d2d;
+  color: #ffffff;
+  border: 1px solid #4bc0c0;
+  padding: 5px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+#serialPortSelect:focus {
+  outline: none;
+  border-color: #3aa0a0;
+}

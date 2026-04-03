@@ -1,0 +1,46 @@
+{
+  "name": "ka-an-astra",
+  "version": "1.0.0",
+  "description": "KA'AN ASTRA - Monitereo de sensores de CanSat",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chart.js": "^4.4.4",
+    "serialport": "^12.0.0",
+    "three": "^0.167.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^32.1.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.kaanastra.app",
+    "productName": "KA'AN ASTRA",
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icono.ico"
+    },
+    "nsis": {
+      "installerIcon": "assets/icono.ico",
+      "uninstallerIcon": "assets/icono.ico",
+      "installerHeaderIcon": "assets/icono.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

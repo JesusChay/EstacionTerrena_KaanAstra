@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://unpkg.com;
+    img-src 'self' data: https://unpkg.com;
+  ">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KA'AN ASTRA</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+</head>
+<body>
+  <div class="banner">
+    <div class="titulo">
+      <img src="assets/logo.png" alt="Logo" class="logo">
+      <span class="titulo-texto">KA'AN ASTRA</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-button active" data-tab="dashboardTab">Dashboard</button>
+    <button class="tab-button" data-tab="mapTab">Mapa</button>
+    <button class="tab-button" data-tab="model3dTab">Modelo 3D</button>
+  </div>
+
+  <div id="dashboardTab" class="tab-content active">
+    <div class="grid-container">
+      <div class="panel">
+        <h2>Temperatura</h2>
+        <canvas id="temperatureChart"></canvas>
+        <span class="value-label" id="tempValue">0.00°C</span>
+      </div>
+      <div class="panel">
+        <h2>Humedad</h2>
+        <canvas id="humidityChart"></canvas>
+        <span class="value-label" id="humidityValue">0.00%</span>
+      </div>
+      <div class="panel">
+        <h2>Presión</h2>
+        <canvas id="pressureChart"></canvas>
+        <span class="value-label" id="pressureValue">0.00 hPa</span>
+      </div>
+      <div class="panel">
+        <h2>Acelerómetro</h2>
+        <canvas id="accelChart"></canvas>
+        <span class="value-label" id="accelValue">0.00 g</span>
+      </div>
+      <div class="panel">
+        <h2>Altura</h2>
+        <canvas id="altitudeChart"></canvas>
+        <span class="value-label" id="altitudeValue">0.00 m</span>
+        <span class="value-label" id="absoluteAltitudeValue">0.00 m</span>
+      </div>
+      <div class="panel">
+        <h2>Viento</h2>
+        <canvas id="windChart"></canvas>
+        <span class="value-label" id="windValue">0.00 m/s</span>
+      </div>
+      <div class="panel">
+        <h2>Velocidad</h2>
+        <canvas id="velocityChart"></canvas>
+        <span class="value-label" id="velocityValue">0.00 m/s</span>
+      </div>
+    </div>
+    <div class="report-button-container">
+      <button id="generateReportBtn">Generar Reporte</button>
+    </div>
+  </div>
+
+  <div id="mapTab" class="tab-content">
+    <div id="map"></div>
+  </div>
+
+  <div id="model3dTab" class="tab-content">
+    <div class="model3d-wrapper">
+      <div class="model3d-panel">
+        <h2>Carga</h2>
+        <div id="model3d" class="model3d-canvas"></div>
+        <div class="gyro-data">
+          <p id="gyroX">X: 0.00 rad/s</p>
+          <p id="gyroY">Y: 0.00 rad/s</p>
+          <p id="gyroZ">Z: 0.00 rad/s</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</html>

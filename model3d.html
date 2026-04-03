@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://unpkg.com;
+    img-src 'self' data: https://unpkg.com;
+  ">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modelo 3D - KA'AN ASTRA</title>
+  <link rel="stylesheet" href="model3d.css" />
+</head>
+<body>
+  <header class="banner">
+    <div class="titulo">
+      <img src="assets/logo.png" alt="Logo" class="logo">
+      <h1 class="titulo-texto">KA'AN ASTRA</h1>
+    </div>
+  </header>
+
+  <main>
+    <div class="model3d-wrapper">
+      <div class="model3d-panel">
+        <h2>Carga</h2>
+        <div id="model3d" class="model3d-canvas"></div>
+        <div class="gyro-data">
+          <p id="gyroX">X: 0.00 rad/s</p>
+          <p id="gyroY">Y: 0.00 rad/s</p>
+          <p id="gyroZ">Z: 0.00 rad/s</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="model3d.js"></script>
+</html>

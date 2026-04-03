@@ -1,0 +1,106 @@
+@import url('common.css');
+
+.serial-port-selector select {
+  background-color: #2c2c2c;
+  color: #ffffff;
+  border: 1px solid #4bc0c0;
+  padding: 5px;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 40px;
+  padding: 10px;
+  margin-bottom: 60px;
+}
+
+.panel {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 300px;
+  justify-content: space-between;
+}
+
+.panel h2 {
+  margin-bottom: 10px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.panel canvas {
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  flex: 1;
+  margin-bottom: 10px;
+}
+
+.value-label {
+  text-align: center;
+  font-size: 11px;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+.report-button-container {
+  text-align: center;
+  padding: 10px;
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+#generateReportBtn {
+  background-color: #4bc0c0;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+#generateReportBtn:hover {
+  background-color: #3aa0a0;
+}
+
+.notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #2c2c2c;
+  color: #ffffff;
+  padding: 15px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 1000;
+  max-width: 400px;
+  font-size: 14px;
+}
+
+.notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.connection-status {
+  background-color: #262626;
+  color: white;
+  text-align: center;
+  padding: 10px;
+  font-size: 14px;
+  border-bottom: 1px solid #4bc0c0;
+  margin-bottom: 10px;
+}

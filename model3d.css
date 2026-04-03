@@ -1,0 +1,42 @@
+@import url('common.css');
+
+.model3d-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px 0;
+}
+.model3d-panel {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  padding: 10px;
+  width: 92%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.model3d-panel h2 {
+  margin-bottom: 10px;
+  text-align: center;
+}
+.model3d-canvas {
+  width: 100%;
+  height: 400px;
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.gyro-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.gyro-data p {
+  margin: 2px 0;
+  font-size: 12px;
+  text-align: center;
+}

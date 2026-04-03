@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://unpkg.com;
+    img-src 'self' data: https://unpkg.com https://*.tile.openstreetmap.org;
+  ">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa - KA'AN ASTRA</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="map.css" />
+</head>
+<body>
+  <header class="banner">
+    <div class="titulo">
+      <img src="assets/logo.png" alt="Logo" class="logo">
+      <h1 class="titulo-texto">KA'AN ASTRA</h1>
+    </div>
+  </header>
+
+  <main>
+    <div id="map"></div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="map.js"></script>
+</html>
