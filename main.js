@@ -17,6 +17,10 @@ let lastPayloadTime = null;
 let lastPayloadUpdateTime = null;
 let lastPayloadPosition = null;
 
+const TELEMETRY_API_URL = process.env.TELEMETRY_API_URL || 'https://kaan-astra-telemetry-api.adriancct13.workers.dev/api/telemetry';
+const TELEMETRY_API_ENABLED = process.env.TELEMETRY_API_ENABLED !== 'false';
+let telemetryPublishFailures = 0;
+
 let accelBias = { x: 0, y: 0, z: 0 };
 let calibrationSamples = [];
 
@@ -293,6 +297,36 @@ function calibrateAccelerometer(accelx, accely, accelz) {
         bias.z = samples.reduce((sum, s) => sum + s.z, 0) / samples.length - 1;
         console.log('Acelerometro calibrado:', bias);
         samples.length = 0;
+    }
+}
+
+async function publishTelemetry(payloadData) {
+    if (!TELEMETRY_API_ENABLED || !payloadData) {
+        return;
+    }
+
+    try {
+        const response = await fetch(TELEMETRY_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ telemetry: payloadData })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        if (telemetryPublishFailures > 0) {
+            console.log('Conexion con la API de telemetria restablecida');
+        }
+        telemetryPublishFailures = 0;
+    } catch (error) {
+        telemetryPublishFailures += 1;
+        if (telemetryPublishFailures === 1 || telemetryPublishFailures % 10 === 0) {
+            console.warn(`No se pudo publicar telemetria en ${TELEMETRY_API_URL}: ${error.message}`);
+        }
     }
 }
 
@@ -758,6 +792,7 @@ function processPayloadData(csv) {
     };
 
     payloadDataLog.push(payloadData);
+    publishTelemetry(payloadData);
     if (dashboardWindow && !dashboardWindow.isDestroyed()) {
         dashboardWindow.webContents.send('payload-data', payloadData);
     }
