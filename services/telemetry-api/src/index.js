@@ -117,6 +117,19 @@ export default {
         });
       }
 
+      if (request.method === 'GET' && url.pathname === '/api/report') {
+        const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '5000', 10);
+        const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 10000) : 5000;
+        const telemetry = await readReportTelemetry(env, limit);
+
+        return json({
+          ok: true,
+          telemetry,
+          count: telemetry.length,
+          persistence: 'cloudflare-d1'
+        });
+      }
+
       if (request.method === 'POST' && url.pathname === '/api/telemetry') {
         const contentType = request.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
@@ -238,6 +251,16 @@ async function readRecentTelemetry(env, limit) {
 
   const rows = Array.isArray(result.results) ? result.results : [];
   return rows.map(mapTelemetryRow).reverse();
+}
+
+async function readReportTelemetry(env, limit) {
+  const result = await env.TELEMETRY_DB
+    .prepare(`SELECT ${selectFields} FROM telemetry ORDER BY id ASC LIMIT ?`)
+    .bind(limit)
+    .all();
+
+  const rows = Array.isArray(result.results) ? result.results : [];
+  return rows.map(mapTelemetryRow);
 }
 
 function mapTelemetryRow(row) {

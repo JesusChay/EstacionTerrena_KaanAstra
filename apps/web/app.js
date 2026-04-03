@@ -22,6 +22,7 @@ const fieldMap = {
   atotalValue: (data) => formatMetric(data.atotal, 'g'),
   relativeAltitudeValue: (data) => formatMetric(data.relativeAltitude, 'm'),
   altitudeValue: (data) => formatMetric(data.altitude, 'm'),
+  infoAltitudeValue: (data) => formatMetric(data.altitude, 'm'),
   windValue: (data) => formatMetric(data.speed, 'ms'),
   velocityValue: (data) => formatMetric(data.velocity, 'ms'),
   velocityZValue: (data) => formatMetric(data.velocityZ, 'ms'),
@@ -49,24 +50,32 @@ const charts = {
 bootstrap();
 
 async function bootstrap() {
+  updateSystemDateTime();
+  setInterval(updateSystemDateTime, 1000);
+
   const { samples, source } = await loadRecentTelemetry();
   syncCharts(samples);
 
   const latest = samples[samples.length - 1];
   if (latest && source === 'api') {
     renderTelemetry(latest, 'API');
-    setApiStatus('Conectada', 'status-ok');
+    setWorkerStatus('Worker conectado', 'status-ok');
+    setStationStatusByTelemetry(latest);
   } else {
     startDemoMode('API no disponible', samples);
   }
 
   setInterval(refreshLatestTelemetry, REFRESH_INTERVAL_MS);
+  const downloadButton = document.getElementById('downloadReportBtn');
+  if (downloadButton) {
+    downloadButton.addEventListener('click', downloadReport);
+  }
 }
 
 async function refreshLatestTelemetry() {
   try {
     const response = await fetch(`${API_BASE}/latest`, { cache: 'no-store' });
-    if (!response.ok) {
+  if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
 
@@ -75,12 +84,12 @@ async function refreshLatestTelemetry() {
       throw new Error('Respuesta sin telemetria');
     }
 
-    setApiStatus('Conectada', 'status-ok');
+    setWorkerStatus('Worker conectado', 'status-ok');
     renderTelemetry(payload.telemetry, 'API activa');
     appendTelemetryPoint(payload.telemetry);
   } catch (error) {
-    setApiStatus('Sin enlace', 'status-error');
-    document.getElementById('payloadStatus').textContent = 'No se pudo consultar la API remota';
+    setWorkerStatus('Worker sin enlace', 'status-error');
+    setStationStatus('Sin datos de estacion', 'status-waiting');
   }
 }
 
@@ -105,7 +114,8 @@ async function loadRecentTelemetry() {
 }
 
 function startDemoMode(reason, samples = buildDemoTelemetry()) {
-  setApiStatus(reason, 'status-waiting');
+  setWorkerStatus(reason, 'status-waiting');
+  setStationStatus('Modo demo local', 'status-waiting');
   setDataMode('Demo local');
   syncCharts(samples);
   renderTelemetry(samples[samples.length - 1], 'Demo local');
@@ -122,7 +132,7 @@ function renderTelemetry(data, sourceMode) {
   });
 
   document.getElementById('sampleTime').textContent = data.time || '--:--:--';
-  document.getElementById('payloadStatus').textContent = buildStatusLine(data);
+  setStationStatusByTelemetry(data);
   setDataMode(sourceMode);
 }
 
@@ -237,23 +247,190 @@ function buildChartOptions() {
   };
 }
 
-function setApiStatus(label, className) {
-  const element = document.getElementById('apiStatus');
+function setWorkerStatus(label, className) {
+  const element = document.getElementById('workerStatus');
   element.textContent = label;
   element.className = `status-pill ${className}`;
+}
+
+function setStationStatus(label, className) {
+  const element = document.getElementById('stationStatus');
+  element.textContent = label;
+  element.className = `status-pill ${className}`;
+}
+
+function setStationStatusByTelemetry(data) {
+  const receivedAt = data?.receivedAtUtc ? Date.parse(data.receivedAtUtc) : Number.NaN;
+  if (!Number.isFinite(receivedAt)) {
+    setStationStatus('Datos de estacion recibidos', 'status-ok');
+    return;
+  }
+
+  const ageMs = Date.now() - receivedAt;
+  if (ageMs <= 5000) {
+    setStationStatus('Recibiendo datos de estacion', 'status-ok');
+    return;
+  }
+
+  if (ageMs <= 15000) {
+    setStationStatus('Datos recientes de estacion', 'status-waiting');
+    return;
+  }
+
+  setStationStatus('Sin datos recientes de estacion', 'status-error');
 }
 
 function setDataMode(value) {
   document.getElementById('dataMode').textContent = value;
 }
 
-function buildStatusLine(data) {
-  return [
-    `Temp ${formatMetric(data.temperature, 'degC')}`,
-    `Hum ${formatMetric(data.humidity, 'pct')}`,
-    `Alt ${formatMetric(data.relativeAltitude, 'm')}`,
-    `Vel ${formatMetric(data.velocity, 'ms')}`
-  ].join(' | ');
+function updateSystemDateTime() {
+  const element = document.getElementById('systemDateTime');
+  if (!element) return;
+
+  const now = new Date();
+  element.textContent = now.toLocaleString('es-MX', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+async function downloadReport() {
+  const button = document.getElementById('downloadReportBtn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Generando...';
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/report?limit=10000`, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const rows = Array.isArray(payload.telemetry) ? payload.telemetry : [];
+    if (rows.length === 0) {
+      throw new Error('No hay datos disponibles para exportar.');
+    }
+
+    const csv = buildReportCsv(rows);
+    const fileName = `kaan_astra_reporte_${buildTimestampTag(new Date())}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    window.alert(error.message || 'No se pudo generar el reporte.');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Descargar reporte';
+    }
+  }
+}
+
+function buildReportCsv(rows) {
+  const columns = [
+    ['Fecha de descarga', new Date().toLocaleString('es-MX', { hour12: false })],
+    [],
+    [
+      'ID',
+      'Hora',
+      'Velocidad del viento (m/s)',
+      'Temperatura (C)',
+      'Humedad (%)',
+      'Presion (hPa)',
+      'Aceleracion X (g)',
+      'Aceleracion Y (g)',
+      'Aceleracion Z (g)',
+      'Aceleracion Total (g)',
+      'Giroscopio X (deg/s)',
+      'Giroscopio Y (deg/s)',
+      'Giroscopio Z (deg/s)',
+      'Giroscopio X (rad/s)',
+      'Giroscopio Y (rad/s)',
+      'Giroscopio Z (rad/s)',
+      'Magnetometro X',
+      'Magnetometro Y',
+      'Magnetometro Z',
+      'Altitud absoluta (m)',
+      'Altitud relativa (m)',
+      'Latitud',
+      'Longitud',
+      'Velocidad horizontal (m/s)',
+      'Velocidad vertical (m/s)',
+      'Desacople',
+      'Recibido UTC'
+    ]
+  ];
+
+  rows.forEach((row) => {
+    columns.push([
+      row.id ?? '',
+      row.time ?? '',
+      row.speed ?? '',
+      row.temperature ?? '',
+      row.humidity ?? '',
+      row.pressure ?? '',
+      row.accelx ?? '',
+      row.accely ?? '',
+      row.accelz ?? '',
+      row.atotal ?? '',
+      row.gyrox ?? '',
+      row.gyroy ?? '',
+      row.gyroz ?? '',
+      row.gyroxRad ?? '',
+      row.gyroyRad ?? '',
+      row.gyrozRad ?? '',
+      row.magx ?? '',
+      row.magy ?? '',
+      row.magz ?? '',
+      row.altitude ?? '',
+      row.relativeAltitude ?? '',
+      row.latitude ?? '',
+      row.longitude ?? '',
+      row.velocity ?? '',
+      row.velocityZ ?? '',
+      row.decouplingStatus ? 'Activo' : 'Inactivo',
+      row.receivedAtUtc ?? ''
+    ]);
+  });
+
+  return columns
+    .map((row) => row.map(escapeCsvValue).join(','))
+    .join('\n');
+}
+
+function escapeCsvValue(value) {
+  const stringValue = String(value ?? '');
+  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+    return `"${stringValue.replaceAll('"', '""')}"`;
+  }
+  return stringValue;
+}
+
+function buildTimestampTag(date) {
+  const parts = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0')
+  ];
+
+  return `${parts[0]}-${parts[1]}-${parts[2]}_${parts[3]}-${parts[4]}-${parts[5]}`;
 }
 
 function formatMetric(value, type) {
