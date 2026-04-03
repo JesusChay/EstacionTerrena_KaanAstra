@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KA'AN ASTRA | Telemetria en vivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Plataforma externa de seguimiento</p>
+        <h1>KA'AN ASTRA Mission Console</h1>
+        <p class="hero-text">
+          Interfaz web para compartir telemetria de la estacion terrena con equipos remotos, jueces o publico autorizado.
+        </p>
+      </div>
+
+      <div class="hero-status card">
+        <div class="status-row">
+          <span class="status-label">Estado del enlace</span>
+          <span id="apiStatus" class="status-pill status-waiting">Esperando API</span>
+        </div>
+        <div class="status-grid">
+          <div>
+            <span class="metric-label">Ultima muestra</span>
+            <strong id="sampleTime">--:--:--</strong>
+          </div>
+          <div>
+            <span class="metric-label">Modo</span>
+            <strong id="dataMode">Demo</strong>
+          </div>
+          <div>
+            <span class="metric-label">Origen</span>
+            <strong>Estacion terrena</strong>
+          </div>
+          <div>
+            <span class="metric-label">Entrega</span>
+            <strong>HTTP API</strong>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="summary-grid">
+        <article class="summary-card card accent-copper">
+          <span class="metric-label">Temperatura</span>
+          <strong id="temperatureValue">--</strong>
+          <span class="metric-foot">Sensor ambiental</span>
+        </article>
+        <article class="summary-card card accent-teal">
+          <span class="metric-label">Humedad</span>
+          <strong id="humidityValue">--</strong>
+          <span class="metric-foot">Condicion actual</span>
+        </article>
+        <article class="summary-card card accent-sand">
+          <span class="metric-label">Altitud relativa</span>
+          <strong id="relativeAltitudeValue">--</strong>
+          <span class="metric-foot">Cambio vs. referencia</span>
+        </article>
+        <article class="summary-card card accent-sky">
+          <span class="metric-label">Velocidad vertical</span>
+          <strong id="velocityZValue">--</strong>
+          <span class="metric-foot">Ascenso o descenso</span>
+        </article>
+      </section>
+
+      <section class="panel-grid">
+        <article class="chart-card card wide">
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">Serie temporal</p>
+              <h2>Atmosfera y altura</h2>
+            </div>
+            <p class="card-note">Temperatura, humedad y altitud relativa</p>
+          </div>
+          <canvas id="environmentChart"></canvas>
+        </article>
+
+        <article class="chart-card card wide">
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">Movimiento</p>
+              <h2>Desplazamiento del CanSat</h2>
+            </div>
+            <p class="card-note">Velocidad horizontal y vertical</p>
+          </div>
+          <canvas id="motionChart"></canvas>
+        </article>
+
+        <article class="card details-card">
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">Paquete actual</p>
+              <h2>Lectura instantanea</h2>
+            </div>
+          </div>
+          <div class="details-grid">
+            <div><span>Presion</span><strong id="pressureValue">--</strong></div>
+            <div><span>Viento</span><strong id="windValue">--</strong></div>
+            <div><span>Velocidad</span><strong id="velocityValue">--</strong></div>
+            <div><span>Altitud abs.</span><strong id="altitudeValue">--</strong></div>
+            <div><span>Latitud</span><strong id="latitudeValue">--</strong></div>
+            <div><span>Longitud</span><strong id="longitudeValue">--</strong></div>
+            <div><span>Aceleracion total</span><strong id="atotalValue">--</strong></div>
+            <div><span>Desacople</span><strong id="decouplingValue">--</strong></div>
+          </div>
+        </article>
+
+        <article class="card details-card">
+          <div class="card-heading">
+            <div>
+              <p class="eyebrow">API</p>
+              <h2>Contrato inicial</h2>
+            </div>
+          </div>
+          <div class="endpoint-list">
+            <code>POST /api/telemetry</code>
+            <code>GET /api/latest</code>
+            <code>GET /api/recent</code>
+            <code>GET /api/schema</code>
+            <code>GET /api/health</code>
+          </div>
+          <p class="card-note">
+            Esta fase prioriza el flujo de ingesta y visualizacion. La persistencia se conectara despues.
+          </p>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

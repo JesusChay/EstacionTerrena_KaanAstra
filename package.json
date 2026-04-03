@@ -5,8 +5,15 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "start:desktop": "electron .",
+    "build:desktop": "electron-builder",
+    "dev:api": "npm --workspace services/telemetry-api run dev",
+    "deploy:api": "npm --workspace services/telemetry-api run deploy"
   },
+  "workspaces": [
+    "services/*"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

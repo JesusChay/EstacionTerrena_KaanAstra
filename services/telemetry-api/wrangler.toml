@@ -1,0 +1,6 @@
+name = "kaan-astra-telemetry-api"
+main = "src/index.js"
+compatibility_date = "2026-04-02"
+
+[vars]
+RECENT_LIMIT = "120"
