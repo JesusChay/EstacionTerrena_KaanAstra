@@ -4,16 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KA'AN ASTRA | Telemetria en vivo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./config.js"></script>
 </head>
 <body>
   <div class="connection-status">
-    <span class="connection-copy">Seguimiento remoto de la estacion terrena</span>
+    <span id="payloadStatus">Esperando datos de carga...</span>
     <span id="apiStatus" class="status-pill status-waiting">Esperando API</span>
   </div>
 
@@ -26,16 +23,16 @@
       </div>
     </div>
 
-    <div class="mission-status">
-      <div class="mission-block">
+    <div class="banner-status">
+      <div class="status-card">
         <span class="meta-label">Ultima muestra</span>
         <strong id="sampleTime">--:--:--</strong>
       </div>
-      <div class="mission-block">
+      <div class="status-card">
         <span class="meta-label">Modo</span>
         <strong id="dataMode">Demo</strong>
       </div>
-      <div class="mission-block fixed">
+      <div class="status-card">
         <span class="meta-label">Entrega</span>
         <strong>HTTP API</strong>
       </div>
@@ -44,72 +41,66 @@
 
   <main class="page-shell">
     <section class="grid-container">
-      <article class="panel metric-panel">
+      <article class="panel">
         <h2>Temperatura</h2>
         <canvas id="temperatureChart"></canvas>
         <div class="value-label" id="temperatureValue">--</div>
       </article>
 
-      <article class="panel metric-panel">
+      <article class="panel">
         <h2>Humedad</h2>
         <canvas id="humidityChart"></canvas>
         <div class="value-label" id="humidityValue">--</div>
       </article>
 
-      <article class="panel metric-panel compact-panel">
+      <article class="panel">
         <h2>Presion</h2>
-        <div class="detail-stack">
-          <div class="detail-row"><span>Actual</span><strong id="pressureValue">--</strong></div>
-          <div class="detail-row"><span>Viento</span><strong id="windValue">--</strong></div>
-          <div class="detail-row"><span>Velocidad</span><strong id="velocityValue">--</strong></div>
-          <div class="detail-row"><span>Vertical</span><strong id="velocityZValue">--</strong></div>
-        </div>
+        <canvas id="pressureChart"></canvas>
+        <div class="value-label" id="pressureValue">--</div>
       </article>
 
-      <article class="panel metric-panel compact-panel">
-        <h2>Estado</h2>
-        <div class="detail-stack">
-          <div class="detail-row"><span>Altitud abs.</span><strong id="altitudeValue">--</strong></div>
-          <div class="detail-row"><span>Altitud rel.</span><strong id="relativeAltitudeValue">--</strong></div>
-          <div class="detail-row"><span>Acel. total</span><strong id="atotalValue">--</strong></div>
-          <div class="detail-row"><span>Desacople</span><strong id="decouplingValue">--</strong></div>
-        </div>
+      <article class="panel">
+        <h2>Acelerometro</h2>
+        <canvas id="accelChart"></canvas>
+        <div class="value-label" id="atotalValue">--</div>
       </article>
 
-      <article class="panel wide-panel">
-        <h2>Ambiente y Altitud</h2>
-        <canvas id="environmentChart"></canvas>
-        <div class="panel-meta">Temperatura, humedad y altitud relativa</div>
+      <article class="panel">
+        <h2>Altitud</h2>
+        <canvas id="altitudeChart"></canvas>
+        <div class="value-label">Relativa: <span id="relativeAltitudeValue">--</span></div>
+        <div class="value-label">Absoluta: <span id="altitudeValue">--</span></div>
       </article>
 
-      <article class="panel wide-panel">
-        <h2>Movimiento</h2>
-        <canvas id="motionChart"></canvas>
-        <div class="panel-meta">Velocidad horizontal y velocidad vertical</div>
+      <article class="panel">
+        <h2>Viento</h2>
+        <canvas id="windChart"></canvas>
+        <div class="value-label" id="windValue">--</div>
       </article>
 
-      <article class="panel metric-panel compact-panel">
-        <h2>Ubicacion</h2>
+      <article class="panel">
+        <h2>Velocidad</h2>
+        <canvas id="velocityChart"></canvas>
+        <div class="value-label">Horizontal: <span id="velocityValue">--</span></div>
+        <div class="value-label">Vertical: <span id="velocityZValue">--</span></div>
+      </article>
+
+      <article class="panel info-panel">
+        <h2>Posicion y Estado</h2>
         <div class="detail-stack">
           <div class="detail-row"><span>Latitud</span><strong id="latitudeValue">--</strong></div>
           <div class="detail-row"><span>Longitud</span><strong id="longitudeValue">--</strong></div>
-          <div class="detail-row"><span>Origen</span><strong>Estacion terrena</strong></div>
-          <div class="detail-row"><span>Canal</span><strong>Cloudflare</strong></div>
-        </div>
-      </article>
-
-      <article class="panel metric-panel compact-panel">
-        <h2>API</h2>
-        <div class="endpoint-list">
-          <code>POST /api/telemetry</code>
-          <code>GET /api/latest</code>
-          <code>GET /api/recent</code>
-          <code>GET /api/schema</code>
-          <code>GET /api/health</code>
+          <div class="detail-row"><span>Desacople</span><strong id="decouplingValue">--</strong></div>
+          <div class="detail-row"><span>API</span><strong>Worker activo</strong></div>
         </div>
       </article>
     </section>
   </main>
+
+  <div class="footer-bar">
+    <span>Visualizacion remota basada en la estacion terrena</span>
+    <code>GET /api/latest</code>
+  </div>
 
   <script src="./app.js"></script>
 </body>

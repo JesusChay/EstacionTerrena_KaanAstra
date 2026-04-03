@@ -1,11 +1,16 @@
 const API_BASE = window.APP_CONFIG?.apiBaseUrl || '/api';
-const HISTORY_LIMIT = 24;
+const HISTORY_LIMIT = 30;
+const REFRESH_INTERVAL_MS = 1000;
 
 const chartState = {
   labels: [],
   temperature: [],
   humidity: [],
+  pressure: [],
+  atotal: [],
   relativeAltitude: [],
+  altitude: [],
+  wind: [],
   velocity: [],
   velocityZ: []
 };
@@ -13,66 +18,40 @@ const chartState = {
 const fieldMap = {
   temperatureValue: (data) => formatMetric(data.temperature, 'degC'),
   humidityValue: (data) => formatMetric(data.humidity, 'pct'),
-  relativeAltitudeValue: (data) => formatMetric(data.relativeAltitude, 'm'),
-  velocityZValue: (data) => formatMetric(data.velocityZ, 'ms'),
   pressureValue: (data) => formatMetric(data.pressure, 'hpa'),
+  atotalValue: (data) => formatMetric(data.atotal, 'g'),
+  relativeAltitudeValue: (data) => formatMetric(data.relativeAltitude, 'm'),
+  altitudeValue: (data) => formatMetric(data.altitude, 'm'),
   windValue: (data) => formatMetric(data.speed, 'ms'),
   velocityValue: (data) => formatMetric(data.velocity, 'ms'),
-  altitudeValue: (data) => formatMetric(data.altitude, 'm'),
+  velocityZValue: (data) => formatMetric(data.velocityZ, 'ms'),
   latitudeValue: (data) => formatMetric(data.latitude, 'coord'),
   longitudeValue: (data) => formatMetric(data.longitude, 'coord'),
-  atotalValue: (data) => formatMetric(data.atotal, 'g'),
   decouplingValue: (data) => data.decouplingStatus ? 'Activo' : 'Inactivo'
 };
 
-const temperatureChart = new Chart(document.getElementById('temperatureChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [createDataset('Temperatura', '#ff9800')]
-  },
-  options: buildChartOptions()
-});
-
-const humidityChart = new Chart(document.getElementById('humidityChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [createDataset('Humedad', '#4caf50')]
-  },
-  options: buildChartOptions()
-});
-
-const environmentChart = new Chart(document.getElementById('environmentChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [
-      createDataset('Temperatura', '#d4824f'),
-      createDataset('Humedad', '#57b8b0'),
-      createDataset('Altitud relativa', '#d4b06a')
-    ]
-  },
-  options: buildChartOptions()
-});
-
-const motionChart = new Chart(document.getElementById('motionChart'), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [
-      createDataset('Velocidad', '#72a8db'),
-      createDataset('Velocidad vertical', '#e66d63')
-    ]
-  },
-  options: buildChartOptions()
-});
+const charts = {
+  temperature: buildChart('temperatureChart', [{ label: 'Temperatura', color: '#ff9f40', key: 'temperature' }]),
+  humidity: buildChart('humidityChart', [{ label: 'Humedad', color: '#4bc0c0', key: 'humidity' }]),
+  pressure: buildChart('pressureChart', [{ label: 'Presion', color: '#36a2eb', key: 'pressure' }]),
+  accel: buildChart('accelChart', [{ label: 'Aceleracion total', color: '#9966ff', key: 'atotal' }]),
+  altitude: buildChart('altitudeChart', [
+    { label: 'Altitud relativa', color: '#ffcd56', key: 'relativeAltitude' },
+    { label: 'Altitud absoluta', color: '#ff6384', key: 'altitude' }
+  ]),
+  wind: buildChart('windChart', [{ label: 'Viento', color: '#4bc0c0', key: 'wind' }]),
+  velocity: buildChart('velocityChart', [
+    { label: 'Velocidad', color: '#36a2eb', key: 'velocity' },
+    { label: 'Velocidad Z', color: '#ff6384', key: 'velocityZ' }
+  ])
+};
 
 bootstrap();
 
 async function bootstrap() {
   const { samples, source } = await loadRecentTelemetry();
   syncCharts(samples);
+
   const latest = samples[samples.length - 1];
   if (latest && source === 'api') {
     renderTelemetry(latest, 'API');
@@ -81,12 +60,12 @@ async function bootstrap() {
     startDemoMode('API no disponible', samples);
   }
 
-  setInterval(refreshLatestTelemetry, 4000);
+  setInterval(refreshLatestTelemetry, REFRESH_INTERVAL_MS);
 }
 
 async function refreshLatestTelemetry() {
   try {
-    const response = await fetch(`${API_BASE}/latest`);
+    const response = await fetch(`${API_BASE}/latest`, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -97,18 +76,17 @@ async function refreshLatestTelemetry() {
     }
 
     setApiStatus('Conectada', 'status-ok');
-    setDataMode('API activa');
+    renderTelemetry(payload.telemetry, 'API activa');
     appendTelemetryPoint(payload.telemetry);
-    renderTelemetry(payload.telemetry, 'API');
   } catch (error) {
-    setApiStatus('Modo demo', 'status-waiting');
-    setDataMode('Demo local');
+    setApiStatus('Sin enlace', 'status-error');
+    document.getElementById('payloadStatus').textContent = 'No se pudo consultar la API remota';
   }
 }
 
 async function loadRecentTelemetry() {
   try {
-    const response = await fetch(`${API_BASE}/recent?limit=${HISTORY_LIMIT}`);
+    const response = await fetch(`${API_BASE}/recent?limit=${HISTORY_LIMIT}`, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -130,7 +108,7 @@ function startDemoMode(reason, samples = buildDemoTelemetry()) {
   setApiStatus(reason, 'status-waiting');
   setDataMode('Demo local');
   syncCharts(samples);
-  renderTelemetry(samples[samples.length - 1], 'Demo');
+  renderTelemetry(samples[samples.length - 1], 'Demo local');
 }
 
 function renderTelemetry(data, sourceMode) {
@@ -144,6 +122,7 @@ function renderTelemetry(data, sourceMode) {
   });
 
   document.getElementById('sampleTime').textContent = data.time || '--:--:--';
+  document.getElementById('payloadStatus').textContent = buildStatusLine(data);
   setDataMode(sourceMode);
 }
 
@@ -169,7 +148,11 @@ function pushTelemetryPoint(sample) {
   chartState.labels.push(sample.time || '--:--:--');
   chartState.temperature.push(asNumber(sample.temperature));
   chartState.humidity.push(asNumber(sample.humidity));
+  chartState.pressure.push(asNumber(sample.pressure));
+  chartState.atotal.push(asNumber(sample.atotal));
   chartState.relativeAltitude.push(asNumber(sample.relativeAltitude));
+  chartState.altitude.push(asNumber(sample.altitude));
+  chartState.wind.push(asNumber(sample.speed));
   chartState.velocity.push(asNumber(sample.velocity));
   chartState.velocityZ.push(asNumber(sample.velocityZ));
 }
@@ -181,30 +164,33 @@ function trimChartState() {
 }
 
 function updateCharts() {
-  temperatureChart.data.labels = [...chartState.labels];
-  temperatureChart.data.datasets[0].data = [...chartState.temperature];
-  temperatureChart.update();
-
-  humidityChart.data.labels = [...chartState.labels];
-  humidityChart.data.datasets[0].data = [...chartState.humidity];
-  humidityChart.update();
-
-  environmentChart.data.labels = [...chartState.labels];
-  environmentChart.data.datasets[0].data = [...chartState.temperature];
-  environmentChart.data.datasets[1].data = [...chartState.humidity];
-  environmentChart.data.datasets[2].data = [...chartState.relativeAltitude];
-  environmentChart.update();
-
-  motionChart.data.labels = [...chartState.labels];
-  motionChart.data.datasets[0].data = [...chartState.velocity];
-  motionChart.data.datasets[1].data = [...chartState.velocityZ];
-  motionChart.update();
+  Object.values(charts).forEach(({ chart, series }) => {
+    chart.data.labels = [...chartState.labels];
+    series.forEach((entry, index) => {
+      chart.data.datasets[index].data = [...chartState[entry.key]];
+    });
+    chart.update();
+  });
 }
 
 function resetChartState() {
   Object.keys(chartState).forEach((key) => {
     chartState[key] = [];
   });
+}
+
+function buildChart(elementId, series) {
+  return {
+    chart: new Chart(document.getElementById(elementId), {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: series.map((entry) => createDataset(entry.label, entry.color))
+      },
+      options: buildChartOptions()
+    }),
+    series
+  };
 }
 
 function createDataset(label, color) {
@@ -215,8 +201,8 @@ function createDataset(label, color) {
     backgroundColor: `${color}22`,
     tension: 0.3,
     borderWidth: 2,
-    pointRadius: 2,
-    pointHoverRadius: 4,
+    pointRadius: 1.5,
+    pointHoverRadius: 3,
     fill: false
   };
 }
@@ -226,28 +212,26 @@ function buildChartOptions() {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    interaction: {
-      intersect: false,
-      mode: 'index'
-    },
     plugins: {
       legend: {
         labels: {
-          color: '#ffffff',
+          color: '#f3fbff',
+          boxWidth: 10,
           font: {
-            family: 'Arial'
+            family: 'Arial',
+            size: 10
           }
         }
       }
     },
     scales: {
       x: {
-        ticks: { color: '#ffffff', font: { size: 10 } },
-        grid: { color: 'rgba(255,255,255,0.08)' }
+        ticks: { color: '#c8d9dd', font: { size: 9 } },
+        grid: { color: 'rgba(255,255,255,0.06)' }
       },
       y: {
-        ticks: { color: '#ffffff', font: { size: 10 } },
-        grid: { color: 'rgba(255,255,255,0.08)' }
+        ticks: { color: '#c8d9dd', font: { size: 9 } },
+        grid: { color: 'rgba(255,255,255,0.06)' }
       }
     }
   };
@@ -261,6 +245,15 @@ function setApiStatus(label, className) {
 
 function setDataMode(value) {
   document.getElementById('dataMode').textContent = value;
+}
+
+function buildStatusLine(data) {
+  return [
+    `Temp ${formatMetric(data.temperature, 'degC')}`,
+    `Hum ${formatMetric(data.humidity, 'pct')}`,
+    `Alt ${formatMetric(data.relativeAltitude, 'm')}`,
+    `Vel ${formatMetric(data.velocity, 'ms')}`
+  ].join(' | ');
 }
 
 function formatMetric(value, type) {
@@ -294,14 +287,17 @@ function asNumber(value) {
 }
 
 function buildDemoTelemetry() {
-  const base = [
-    { time: '12:10:01', temperature: '24.10', humidity: '58.20', relativeAltitude: '5.30', velocity: '1.80', velocityZ: '0.65', pressure: '1007.20', speed: '4.20', altitude: '128.60', latitude: '20.967370', longitude: '-89.623710', atotal: '1.02', decouplingStatus: false },
-    { time: '12:10:03', temperature: '24.15', humidity: '58.50', relativeAltitude: '6.10', velocity: '2.30', velocityZ: '0.82', pressure: '1007.10', speed: '4.35', altitude: '129.10', latitude: '20.967372', longitude: '-89.623708', atotal: '1.04', decouplingStatus: false },
-    { time: '12:10:05', temperature: '24.18', humidity: '58.90', relativeAltitude: '7.00', velocity: '2.85', velocityZ: '0.91', pressure: '1007.00', speed: '4.55', altitude: '130.00', latitude: '20.967375', longitude: '-89.623705', atotal: '1.03', decouplingStatus: false },
-    { time: '12:10:07', temperature: '24.22', humidity: '59.10', relativeAltitude: '7.80', velocity: '3.05', velocityZ: '0.76', pressure: '1006.90', speed: '4.70', altitude: '130.80', latitude: '20.967377', longitude: '-89.623703', atotal: '1.01', decouplingStatus: false },
-    { time: '12:10:09', temperature: '24.28', humidity: '59.40', relativeAltitude: '8.30', velocity: '2.60', velocityZ: '-0.25', pressure: '1006.95', speed: '4.10', altitude: '131.00', latitude: '20.967381', longitude: '-89.623701', atotal: '0.99', decouplingStatus: false },
-    { time: '12:10:11', temperature: '24.35', humidity: '59.60', relativeAltitude: '8.00', velocity: '2.10', velocityZ: '-0.60', pressure: '1007.05', speed: '3.80', altitude: '130.75', latitude: '20.967384', longitude: '-89.623699', atotal: '1.00', decouplingStatus: true }
+  return [
+    { time: '12:10:01', temperature: '24.10', humidity: '58.20', pressure: '1007.20', atotal: '1.02', relativeAltitude: '5.30', altitude: '128.60', speed: '4.20', velocity: '1.80', velocityZ: '0.65', latitude: '20.967370', longitude: '-89.623710', decouplingStatus: false },
+    { time: '12:10:02', temperature: '24.13', humidity: '58.35', pressure: '1007.16', atotal: '1.03', relativeAltitude: '5.90', altitude: '129.05', speed: '4.28', velocity: '2.00', velocityZ: '0.72', latitude: '20.967372', longitude: '-89.623708', decouplingStatus: false },
+    { time: '12:10:03', temperature: '24.15', humidity: '58.50', pressure: '1007.10', atotal: '1.04', relativeAltitude: '6.10', altitude: '129.10', speed: '4.35', velocity: '2.30', velocityZ: '0.82', latitude: '20.967372', longitude: '-89.623708', decouplingStatus: false },
+    { time: '12:10:04', temperature: '24.16', humidity: '58.70', pressure: '1007.06', atotal: '1.03', relativeAltitude: '6.60', altitude: '129.55', speed: '4.46', velocity: '2.60', velocityZ: '0.89', latitude: '20.967374', longitude: '-89.623706', decouplingStatus: false },
+    { time: '12:10:05', temperature: '24.18', humidity: '58.90', pressure: '1007.00', atotal: '1.03', relativeAltitude: '7.00', altitude: '130.00', speed: '4.55', velocity: '2.85', velocityZ: '0.91', latitude: '20.967375', longitude: '-89.623705', decouplingStatus: false },
+    { time: '12:10:06', temperature: '24.20', humidity: '59.00', pressure: '1006.95', atotal: '1.02', relativeAltitude: '7.45', altitude: '130.35', speed: '4.66', velocity: '2.98', velocityZ: '0.84', latitude: '20.967376', longitude: '-89.623704', decouplingStatus: false },
+    { time: '12:10:07', temperature: '24.22', humidity: '59.10', pressure: '1006.90', atotal: '1.01', relativeAltitude: '7.80', altitude: '130.80', speed: '4.70', velocity: '3.05', velocityZ: '0.76', latitude: '20.967377', longitude: '-89.623703', decouplingStatus: false },
+    { time: '12:10:08', temperature: '24.24', humidity: '59.25', pressure: '1006.93', atotal: '1.00', relativeAltitude: '8.10', altitude: '130.95', speed: '4.32', velocity: '2.88', velocityZ: '0.18', latitude: '20.967379', longitude: '-89.623702', decouplingStatus: false },
+    { time: '12:10:09', temperature: '24.28', humidity: '59.40', pressure: '1006.95', atotal: '0.99', relativeAltitude: '8.30', altitude: '131.00', speed: '4.10', velocity: '2.60', velocityZ: '-0.25', latitude: '20.967381', longitude: '-89.623701', decouplingStatus: false },
+    { time: '12:10:10', temperature: '24.31', humidity: '59.50', pressure: '1007.00', atotal: '1.00', relativeAltitude: '8.20', altitude: '130.90', speed: '3.92', velocity: '2.35', velocityZ: '-0.45', latitude: '20.967383', longitude: '-89.623700', decouplingStatus: false },
+    { time: '12:10:11', temperature: '24.35', humidity: '59.60', pressure: '1007.05', atotal: '1.00', relativeAltitude: '8.00', altitude: '130.75', speed: '3.80', velocity: '2.10', velocityZ: '-0.60', latitude: '20.967384', longitude: '-89.623699', decouplingStatus: true }
   ];
-
-  return base;
 }
