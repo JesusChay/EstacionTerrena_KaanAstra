@@ -26,6 +26,9 @@ const allowedFields = [
   'decouplingStatus'
 ];
 
+let memoryLatestTelemetry = null;
+let memoryRecentTelemetry = [];
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -139,38 +142,50 @@ function normalizeTelemetry(payload) {
 
 async function readLatestTelemetry(env) {
   if (!env.TELEMETRY_CACHE) {
-    return null;
+    return memoryLatestTelemetry;
   }
 
-  const raw = await env.TELEMETRY_CACHE.get('latest');
-  return raw ? JSON.parse(raw) : null;
+  try {
+    const raw = await env.TELEMETRY_CACHE.get('latest');
+    return raw ? JSON.parse(raw) : memoryLatestTelemetry;
+  } catch (error) {
+    return memoryLatestTelemetry;
+  }
 }
 
 async function readRecentTelemetry(env) {
   if (!env.TELEMETRY_CACHE) {
-    return [];
+    return memoryRecentTelemetry;
   }
 
-  const raw = await env.TELEMETRY_CACHE.get('recent');
-  return raw ? JSON.parse(raw) : [];
+  try {
+    const raw = await env.TELEMETRY_CACHE.get('recent');
+    return raw ? JSON.parse(raw) : memoryRecentTelemetry;
+  } catch (error) {
+    return memoryRecentTelemetry;
+  }
 }
 
 async function writeTelemetry(env, latestTelemetry) {
+  memoryLatestTelemetry = latestTelemetry;
+  memoryRecentTelemetry.push(latestTelemetry);
+  const maxLimit = Number.parseInt(env.RECENT_LIMIT || '120', 10);
+  memoryRecentTelemetry = memoryRecentTelemetry.slice(-maxLimit);
+
   if (!env.TELEMETRY_CACHE) {
-    return [latestTelemetry];
+    return memoryRecentTelemetry;
   }
 
-  const maxLimit = Number.parseInt(env.RECENT_LIMIT || '120', 10);
-  const recentTelemetry = await readRecentTelemetry(env);
-  recentTelemetry.push(latestTelemetry);
-  const boundedTelemetry = recentTelemetry.slice(-maxLimit);
+  try {
+    await Promise.all([
+      env.TELEMETRY_CACHE.put('latest', JSON.stringify(latestTelemetry)),
+      env.TELEMETRY_CACHE.put('recent', JSON.stringify(memoryRecentTelemetry))
+    ]);
+  } catch (error) {
+    console.warn(`KV no disponible, usando memoria temporal: ${error.message}`);
+  }
 
-  await Promise.all([
-    env.TELEMETRY_CACHE.put('latest', JSON.stringify(latestTelemetry)),
-    env.TELEMETRY_CACHE.put('recent', JSON.stringify(boundedTelemetry))
-  ]);
-
-  return boundedTelemetry;
+  return memoryRecentTelemetry;
 }
 
 function normalizeScalar(value) {

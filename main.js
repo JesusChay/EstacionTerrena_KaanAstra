@@ -19,7 +19,9 @@ let lastPayloadPosition = null;
 
 const TELEMETRY_API_URL = process.env.TELEMETRY_API_URL || 'https://kaan-astra-telemetry-api.adriancct13.workers.dev/api/telemetry';
 const TELEMETRY_API_ENABLED = process.env.TELEMETRY_API_ENABLED !== 'false';
+const TELEMETRY_PUBLISH_INTERVAL_MS = Number.parseInt(process.env.TELEMETRY_PUBLISH_INTERVAL_MS || '1000', 10);
 let telemetryPublishFailures = 0;
+let lastTelemetryPublishAt = 0;
 
 let accelBias = { x: 0, y: 0, z: 0 };
 let calibrationSamples = [];
@@ -304,6 +306,13 @@ async function publishTelemetry(payloadData) {
     if (!TELEMETRY_API_ENABLED || !payloadData) {
         return;
     }
+
+    const now = Date.now();
+    if (Number.isFinite(TELEMETRY_PUBLISH_INTERVAL_MS) && TELEMETRY_PUBLISH_INTERVAL_MS > 0 && now - lastTelemetryPublishAt < TELEMETRY_PUBLISH_INTERVAL_MS) {
+        return;
+    }
+
+    lastTelemetryPublishAt = now;
 
     try {
         const response = await fetch(TELEMETRY_API_URL, {
