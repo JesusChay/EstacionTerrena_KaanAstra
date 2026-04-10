@@ -47,9 +47,28 @@ const charts = {
   ])
 };
 
+let map;
+let payloadMarker;
+let payloadPath;
+let payloadPathCoordinates = [];
+let firstValidPayloadCoord = false;
+let latestMapCoords = null;
+
+let scene;
+let camera;
+let renderer;
+let modelObject;
+let fallbackModel;
+let modelContainer;
+let modelInitialized = false;
+
 bootstrap();
 
 async function bootstrap() {
+  initializeTabs();
+  initializeMap();
+  initializeModel3D();
+  animateModel();
   updateSystemDateTime();
   setInterval(updateSystemDateTime, 1000);
 
@@ -70,6 +89,38 @@ async function bootstrap() {
   if (downloadButton) {
     downloadButton.addEventListener('click', downloadReport);
   }
+
+  const centerMapButton = document.getElementById('centerMapBtn');
+  if (centerMapButton) {
+    centerMapButton.addEventListener('click', centerMapOnPayload);
+  }
+}
+
+function initializeTabs() {
+  const buttons = document.querySelectorAll('[data-tab]');
+  const panels = document.querySelectorAll('[data-tab-panel]');
+
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = button.dataset.tab;
+
+      buttons.forEach((entry) => {
+        entry.classList.toggle('is-active', entry === button);
+      });
+
+      panels.forEach((panel) => {
+        panel.classList.toggle('is-active', panel.dataset.tabPanel === target);
+      });
+
+      if (target === 'map' && map) {
+        setTimeout(() => map.invalidateSize(), 50);
+      }
+
+      if (target === 'model') {
+        handleModelResize();
+      }
+    });
+  });
 }
 
 async function refreshLatestTelemetry() {
@@ -134,11 +185,14 @@ function renderTelemetry(data, sourceMode) {
   document.getElementById('sampleTime').textContent = data.time || '--:--:--';
   setStationStatusByTelemetry(data);
   setDataMode(sourceMode);
+  updateMapTelemetry(data);
+  updateModelTelemetry(data);
 }
 
 function syncCharts(samples) {
   resetChartState();
   samples.forEach(pushTelemetryPoint);
+  syncMapPath(samples);
   updateCharts();
 }
 
@@ -152,6 +206,192 @@ function appendTelemetryPoint(sample) {
   pushTelemetryPoint(sample);
   trimChartState();
   updateCharts();
+}
+
+function initializeMap() {
+  if (map || typeof L === 'undefined') return;
+
+  map = L.map('mapView', { zoomControl: true }).setView([19.4326, -99.1332], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  payloadPath = L.polyline([], {
+    color: '#ff7b63',
+    weight: 4,
+    opacity: 0.9
+  }).addTo(map);
+}
+
+function syncMapPath(samples) {
+  if (!map || !payloadPath) return;
+
+  payloadPathCoordinates = [];
+  firstValidPayloadCoord = false;
+  if (payloadMarker) {
+    map.removeLayer(payloadMarker);
+    payloadMarker = null;
+  }
+
+  samples.forEach((sample) => updateMapTelemetry(sample));
+
+  if (payloadPathCoordinates.length === 0) {
+    payloadPath.setLatLngs([]);
+  }
+}
+
+function updateMapTelemetry(data) {
+  if (!map || !payloadPath || !data) return;
+
+  const latitude = Number.parseFloat(data.latitude);
+  const longitude = Number.parseFloat(data.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0)) {
+    return;
+  }
+
+  const coords = [latitude, longitude];
+  latestMapCoords = coords;
+  document.getElementById('mapLatitudeValue').textContent = latitude.toFixed(6);
+  document.getElementById('mapLongitudeValue').textContent = longitude.toFixed(6);
+  const lastCoord = payloadPathCoordinates[payloadPathCoordinates.length - 1];
+  if (!lastCoord || lastCoord[0] !== coords[0] || lastCoord[1] !== coords[1]) {
+    payloadPathCoordinates.push(coords);
+    payloadPath.setLatLngs(payloadPathCoordinates);
+  }
+
+  if (!payloadMarker) {
+    payloadMarker = L.marker(coords, {
+      icon: L.icon({
+        iconUrl: './assets/Marcador_Primaria.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41]
+      })
+    }).addTo(map);
+  } else {
+    payloadMarker.setLatLng(coords);
+  }
+
+  if (!firstValidPayloadCoord) {
+    map.setView(coords, 15);
+    firstValidPayloadCoord = true;
+  }
+}
+
+function centerMapOnPayload() {
+  if (map && latestMapCoords) {
+    map.setView(latestMapCoords, 16);
+  }
+}
+
+function initializeModel3D() {
+  if (modelInitialized || typeof THREE === 'undefined') return;
+
+  modelContainer = document.getElementById('model3dView');
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(60, modelContainer.clientWidth / modelContainer.clientHeight, 0.1, 1000);
+  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(modelContainer.clientWidth, modelContainer.clientHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  modelContainer.appendChild(renderer.domElement);
+
+  fallbackModel = buildFallbackModel();
+  scene.add(fallbackModel);
+
+  loadRealModel();
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.75);
+  scene.add(ambient);
+
+  const directional = new THREE.DirectionalLight(0xffffff, 1.2);
+  directional.position.set(3, 3, 4);
+  scene.add(directional);
+
+  camera.position.set(0, 0.4, 5.5);
+  camera.lookAt(0, 0, 0);
+
+  window.addEventListener('resize', handleModelResize);
+  modelInitialized = true;
+}
+
+function buildFallbackModel() {
+  const group = new THREE.Group();
+
+  const bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 2.2, 32);
+  const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x6e7775, shininess: 60 });
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  group.add(body);
+
+  const capGeometry = new THREE.ConeGeometry(0.82, 0.55, 32);
+  const capMaterial = new THREE.MeshPhongMaterial({ color: 0xd8b35e, shininess: 45 });
+  const cap = new THREE.Mesh(capGeometry, capMaterial);
+  cap.position.y = 1.35;
+  group.add(cap);
+
+  const baseRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.72, 0.06, 16, 40),
+    new THREE.MeshPhongMaterial({ color: 0x4bc0c0 })
+  );
+  baseRing.rotation.x = Math.PI / 2;
+  baseRing.position.y = -1.1;
+  group.add(baseRing);
+
+  return group;
+}
+
+function loadRealModel() {
+  if (typeof THREE.GLTFLoader === 'undefined') {
+    return;
+  }
+
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    './assets/tacita.glb',
+    (gltf) => {
+      modelObject = gltf.scene;
+      modelObject.scale.set(1.6, 1.6, 1.6);
+      modelObject.position.set(0, -0.6, 0);
+      scene.remove(fallbackModel);
+      scene.add(modelObject);
+    },
+    undefined,
+    () => {
+      modelObject = fallbackModel;
+    }
+  );
+}
+
+function animateModel() {
+  requestAnimationFrame(animateModel);
+  if (modelInitialized && renderer && scene && camera) {
+    renderer.render(scene, camera);
+  }
+}
+
+function handleModelResize() {
+  if (!modelInitialized || !modelContainer || !renderer || !camera) return;
+  camera.aspect = modelContainer.clientWidth / modelContainer.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(modelContainer.clientWidth, modelContainer.clientHeight);
+}
+
+function updateModelTelemetry(data) {
+  if (!modelInitialized || !data) return;
+
+  const activeModel = modelObject || fallbackModel;
+  if (!activeModel) return;
+
+  const gx = data.gyroxRad !== undefined ? Number.parseFloat(data.gyroxRad) : (Number.parseFloat(data.gyrox) || 0) * 0.0174533;
+  const gy = data.gyroyRad !== undefined ? Number.parseFloat(data.gyroyRad) : (Number.parseFloat(data.gyroy) || 0) * 0.0174533;
+  const gz = data.gyrozRad !== undefined ? Number.parseFloat(data.gyrozRad) : (Number.parseFloat(data.gyroz) || 0) * 0.0174533;
+
+  activeModel.rotation.x = Number.isFinite(gx) ? gx : 0;
+  activeModel.rotation.y = Number.isFinite(gy) ? gy : 0;
+  activeModel.rotation.z = Number.isFinite(gz) ? gz : 0;
+
+  document.getElementById('gyroX').textContent = `X: ${Number.isFinite(gx) ? gx.toFixed(4) : '0.0000'} rad/s`;
+  document.getElementById('gyroY').textContent = `Y: ${Number.isFinite(gy) ? gy.toFixed(4) : '0.0000'} rad/s`;
+  document.getElementById('gyroZ').textContent = `Z: ${Number.isFinite(gz) ? gz.toFixed(4) : '0.0000'} rad/s`;
 }
 
 function pushTelemetryPoint(sample) {
@@ -281,7 +521,10 @@ function setStationStatusByTelemetry(data) {
 }
 
 function setDataMode(value) {
-  document.getElementById('dataMode').textContent = value;
+  const element = document.getElementById('dataMode');
+  if (element) {
+    element.textContent = value;
+  }
 }
 
 function updateSystemDateTime() {

@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KA'AN ASTRA | Telemetria en vivo</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="./config.js"></script>
 </head>
 <body>
@@ -37,58 +41,98 @@
   </header>
 
   <main class="page-shell">
-    <section class="grid-container">
-      <article class="panel">
-        <h2>Temperatura</h2>
-        <canvas id="temperatureChart"></canvas>
-        <div class="value-label" id="temperatureValue">--</div>
-      </article>
+    <nav class="subtabs" aria-label="Vistas de telemetria">
+      <button type="button" class="subtab-button is-active" data-tab="dashboard">Dashboard</button>
+      <button type="button" class="subtab-button" data-tab="map">Mapa</button>
+      <button type="button" class="subtab-button" data-tab="model">Modelo 3D</button>
+    </nav>
 
-      <article class="panel">
-        <h2>Humedad</h2>
-        <canvas id="humidityChart"></canvas>
-        <div class="value-label" id="humidityValue">--</div>
-      </article>
+    <section class="tab-panel is-active" data-tab-panel="dashboard">
+      <section class="grid-container">
+        <article class="panel">
+          <h2>Temperatura</h2>
+          <canvas id="temperatureChart"></canvas>
+          <div class="value-label" id="temperatureValue">--</div>
+        </article>
 
-      <article class="panel">
-        <h2>Presion</h2>
-        <canvas id="pressureChart"></canvas>
-        <div class="value-label" id="pressureValue">--</div>
-      </article>
+        <article class="panel">
+          <h2>Humedad</h2>
+          <canvas id="humidityChart"></canvas>
+          <div class="value-label" id="humidityValue">--</div>
+        </article>
 
-      <article class="panel">
-        <h2>Acelerometro</h2>
-        <canvas id="accelChart"></canvas>
-        <div class="value-label" id="atotalValue">--</div>
-      </article>
+        <article class="panel">
+          <h2>Presion</h2>
+          <canvas id="pressureChart"></canvas>
+          <div class="value-label" id="pressureValue">--</div>
+        </article>
 
-      <article class="panel">
-        <h2>Altitud</h2>
-        <canvas id="altitudeChart"></canvas>
-        <div class="value-label">Relativa: <span id="relativeAltitudeValue">--</span></div>
-        <div class="value-label">Absoluta: <span id="altitudeValue">--</span></div>
-      </article>
+        <article class="panel">
+          <h2>Acelerometro</h2>
+          <canvas id="accelChart"></canvas>
+          <div class="value-label" id="atotalValue">--</div>
+        </article>
 
-      <article class="panel">
-        <h2>Viento</h2>
-        <canvas id="windChart"></canvas>
-        <div class="value-label" id="windValue">--</div>
-      </article>
+        <article class="panel">
+          <h2>Altitud</h2>
+          <canvas id="altitudeChart"></canvas>
+          <div class="value-label">Relativa: <span id="relativeAltitudeValue">--</span></div>
+          <div class="value-label">Absoluta: <span id="altitudeValue">--</span></div>
+        </article>
 
-      <article class="panel">
-        <h2>Velocidad</h2>
-        <canvas id="velocityChart"></canvas>
-        <div class="value-label">Horizontal: <span id="velocityValue">--</span></div>
-        <div class="value-label">Vertical: <span id="velocityZValue">--</span></div>
-      </article>
+        <article class="panel">
+          <h2>Viento</h2>
+          <canvas id="windChart"></canvas>
+          <div class="value-label" id="windValue">--</div>
+        </article>
 
-      <article class="panel info-panel">
-        <h2>Posicion y Estado</h2>
-        <div class="detail-stack">
-          <div class="detail-row"><span>Latitud</span><strong id="latitudeValue">--</strong></div>
-          <div class="detail-row"><span>Longitud</span><strong id="longitudeValue">--</strong></div>
-          <div class="detail-row"><span>Altitud</span><strong id="infoAltitudeValue">--</strong></div>
-          <div class="detail-row"><span>Desacople</span><strong id="decouplingValue">--</strong></div>
+        <article class="panel">
+          <h2>Velocidad</h2>
+          <canvas id="velocityChart"></canvas>
+          <div class="value-label">Horizontal: <span id="velocityValue">--</span></div>
+          <div class="value-label">Vertical: <span id="velocityZValue">--</span></div>
+        </article>
+
+        <article class="panel info-panel">
+          <h2>Posicion y Estado</h2>
+          <div class="detail-stack">
+            <div class="detail-row"><span>Latitud</span><strong id="latitudeValue">--</strong></div>
+            <div class="detail-row"><span>Longitud</span><strong id="longitudeValue">--</strong></div>
+            <div class="detail-row"><span>Altitud</span><strong id="infoAltitudeValue">--</strong></div>
+            <div class="detail-row"><span>Desacople</span><strong id="decouplingValue">--</strong></div>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-tab-panel="map">
+      <article class="panel immersive-panel">
+        <div class="panel-header-row">
+          <h2>Mapa</h2>
+          <div class="panel-tools">
+            <span class="panel-chip">Trayectoria y posicion actual</span>
+            <button id="centerMapBtn" type="button" class="panel-action">Centrar carga</button>
+          </div>
+        </div>
+        <div class="map-info-row">
+          <span>Latitud: <strong id="mapLatitudeValue">--</strong></span>
+          <span>Longitud: <strong id="mapLongitudeValue">--</strong></span>
+        </div>
+        <div id="mapView" class="map-surface"></div>
+      </article>
+    </section>
+
+    <section class="tab-panel" data-tab-panel="model">
+      <article class="panel immersive-panel model-panel">
+        <div class="panel-header-row">
+          <h2>Modelo 3D</h2>
+          <span class="panel-chip">Orientacion estimada</span>
+        </div>
+        <div id="model3dView" class="model-surface"></div>
+        <div class="gyro-strip">
+          <span id="gyroX">X: 0.0000 rad/s</span>
+          <span id="gyroY">Y: 0.0000 rad/s</span>
+          <span id="gyroZ">Z: 0.0000 rad/s</span>
         </div>
       </article>
     </section>
