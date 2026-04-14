@@ -4,6 +4,7 @@ const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const fs = require('fs');
 const XLSX = require('xlsx');
+const { parseTelemetryMessage, isTelemetryLine } = require('./telemetry/parser');
 
 let dashboardWindow, mapWindow, model3dWindow;
 let serialPort, parser;
@@ -469,6 +470,10 @@ function initializeSerialPort(portName, baudRate = 115200) {
             const trimmed = line.trim();
             if (!trimmed) return;
 
+            if (!isTelemetryLine(trimmed)) {
+                return;
+            }
+
             if (trimmed.startsWith('[PAYLOAD]')) {
                 processPayloadData(trimmed.replace('[PAYLOAD]', '').trim());
             } else if (trimmed.startsWith('[PRIMARY]')) {
@@ -478,7 +483,7 @@ function initializeSerialPort(portName, baudRate = 115200) {
                 // Legacy firmware format (pre-refactor)
                 processPayloadData(trimmed.replace('[SECONDARY]', '').trim());
             } else {
-                // If firmware sends raw CSV without tags
+                // Tagged telemetry or raw CSV without tags
                 processPayloadData(trimmed);
             }
         });
@@ -567,70 +572,8 @@ function normalizePressureToHpa(pressure) {
     return pressure > 2000 ? pressure / 100 : pressure;
 }
 
-function parsePayloadCsv(csv) {
-    const parts = csv.split(',').map(p => p.trim());
-
-    // New single-payload format (recommended)
-    // speed, temperature, humidity, pressure, accelx, accely, accelz, gyrox, gyroy, gyroz, magx, magy, magz, altitude, latitude, longitude, decoupling_status
-    if (parts.length === 17) {
-        const speed = toNumber(parts[0]);
-        const temperature = toNumber(parts[1]);
-        const humidity = toNumber(parts[2]);
-        const pressure = normalizePressureToHpa(toNumber(parts[3]));
-        const accelx = toNumber(parts[4]);
-        const accely = toNumber(parts[5]);
-        const accelz = toNumber(parts[6]);
-        const gyrox = toNumber(parts[7]);
-        const gyroy = toNumber(parts[8]);
-        const gyroz = toNumber(parts[9]);
-        const magx = toNumber(parts[10]);
-        const magy = toNumber(parts[11]);
-        const magz = toNumber(parts[12]);
-        const altitude = toNumber(parts[13]);
-        const latitude = toNumber(parts[14]);
-        const longitude = toNumber(parts[15]);
-        const decouplingStatus = parts[16].toLowerCase() === 'true';
-
-        if ([speed, temperature, humidity, pressure, accelx, accely, accelz, gyrox, gyroy, gyroz, magx, magy, magz, altitude, latitude, longitude].some(v => v === undefined)) {
-            console.error('❌ Payload: Valor no numerico en datos:', parts);
-            return null;
-        }
-
-        return { speed, temperature, humidity, pressure, accelx, accely, accelz, gyrox, gyroy, gyroz, magx, magy, magz, altitude, latitude, longitude, decouplingStatus };
-    }
-
-    // Legacy PRIMARY (pre-refactor)
-    // speed, accelx, accely, accelz, gyrox, gyroy, gyroz, magx, magy, magz, altitude, latitude, longitude, decoupling_status
-    if (parts.length === 14) {
-        const nums = parts.slice(0, 13).map(toNumber);
-        if (nums.some(v => v === undefined)) {
-            console.error('❌ Legacy PRIMARY: Valor no numerico en datos:', parts);
-            return null;
-        }
-        const [speed, accelx, accely, accelz, gyrox, gyroy, gyroz, magx, magy, magz, altitude, latitude, longitude] = nums;
-        const decouplingStatus = parts[13].toLowerCase() === 'true';
-        return { speed, accelx, accely, accelz, gyrox, gyroy, gyroz, magx, magy, magz, altitude, latitude, longitude, decouplingStatus };
-    }
-
-    // Legacy SECONDARY (pre-refactor)
-    // temperature, accelx, accely, accelz, gyrox, gyroy, gyroz, humidity, pressure(Pa), altitude, latitude, longitude
-    if (parts.length === 12) {
-        const nums = parts.map(toNumber);
-        if (nums.some(v => v === undefined)) {
-            console.error('❌ Legacy SECONDARY: Valor no numerico en datos:', parts);
-            return null;
-        }
-        const [temperature, accelx, accely, accelz, gyrox, gyroy, gyroz, humidity, pressurePa, altitude, latitude, longitude] = nums;
-        const pressure = normalizePressureToHpa(pressurePa);
-        return { temperature, accelx, accely, accelz, gyrox, gyroy, gyroz, humidity, pressure, altitude, latitude, longitude };
-    }
-
-    console.error(`❌ Payload: Cantidad incorrecta de valores (${parts.length}). Datos recibidos: ${csv}`);
-    return null;
-}
-
-function processPayloadData(csv) {
-    const parsed = parsePayloadCsv(csv);
+function processPayloadData(message) {
+    const parsed = parseTelemetryMessage(message);
     if (!parsed) return;
 
     const ACCEL_MAX = 4;
@@ -669,6 +612,7 @@ function processPayloadData(csv) {
     const latitude = payloadSensors.latitude;
     const longitude = payloadSensors.longitude;
     const decouplingStatus = payloadSensors.decouplingStatus === true;
+    const sourceChannel = payloadSensors.sourceChannel;
 
     let correctedAccelx;
     let correctedAccely;
@@ -797,7 +741,8 @@ function processPayloadData(csv) {
         velocity: format(velocity, 2),
         velocityZ: format(velocityZ, 2),
         relativeAltitude: format(relativeAltitude, 2),
-        decouplingStatus
+        decouplingStatus,
+        sourceChannel
     };
 
     payloadDataLog.push(payloadData);

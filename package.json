@@ -8,6 +8,7 @@
     "build": "electron-builder",
     "start:desktop": "electron .",
     "build:desktop": "electron-builder",
+    "test": "node --test telemetry/*.test.js",
     "dev:api": "npm --workspace services/telemetry-api run dev",
     "deploy:api": "npm --workspace services/telemetry-api run deploy"
   },
