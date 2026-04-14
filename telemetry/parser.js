@@ -42,6 +42,10 @@ const TAGGED_TELEMETRY_FIELDS = {
     MAGZ: 'magz',
     ALT: 'altitude',
     ALTITUDE: 'altitude',
+    RXLAT: 'receiverLatitude',
+    RXLON: 'receiverLongitude',
+    DIST: 'distanceToReceiver',
+    DISTANCE: 'distanceToReceiver',
     RELALT: 'relativeAltitude',
     RELATIVEALTITUDE: 'relativeAltitude',
     VEL: 'velocity',
@@ -80,6 +84,17 @@ function parseTaggedTelemetry(message) {
     if (txMatch) {
         parsed.latitude = toNumber(txMatch[1]);
         parsed.longitude = toNumber(txMatch[2]);
+    }
+
+    const rxMatch = text.match(/RX\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
+    if (rxMatch) {
+        parsed.receiverLatitude = toNumber(rxMatch[1]);
+        parsed.receiverLongitude = toNumber(rxMatch[2]);
+    }
+
+    const distanceMatch = text.match(/\bD\s*=\s*(-?\d+(?:\.\d+)?)\s*m?/i);
+    if (distanceMatch) {
+        parsed.distanceToReceiver = toNumber(distanceMatch[1]);
     }
 
     const latLonMatch = text.match(/LAT\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*,\s*LON\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);

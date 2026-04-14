@@ -7,6 +7,7 @@ const chartState = {
   temperature: [],
   humidity: [],
   pressure: [],
+  distanceToReceiver: [],
   atotal: [],
   relativeAltitude: [],
   altitude: [],
@@ -23,11 +24,15 @@ const fieldMap = {
   relativeAltitudeValue: (data) => formatMetric(data.relativeAltitude, 'm'),
   altitudeValue: (data) => formatMetric(data.altitude, 'm'),
   infoAltitudeValue: (data) => formatMetric(data.altitude, 'm'),
+  distanceValue: (data) => formatMetric(data.distanceToReceiver, 'm'),
+  mapDistanceValue: (data) => formatMetric(data.distanceToReceiver, 'm'),
   windValue: (data) => formatMetric(data.speed, 'ms'),
   velocityValue: (data) => formatMetric(data.velocity, 'ms'),
   velocityZValue: (data) => formatMetric(data.velocityZ, 'ms'),
   latitudeValue: (data) => formatMetric(data.latitude, 'coord'),
   longitudeValue: (data) => formatMetric(data.longitude, 'coord'),
+  receiverLatitudeValue: (data) => formatMetric(data.receiverLatitude, 'coord'),
+  receiverLongitudeValue: (data) => formatMetric(data.receiverLongitude, 'coord'),
   decouplingValue: (data) => data.decouplingStatus ? 'Activo' : 'Inactivo'
 };
 
@@ -35,6 +40,7 @@ const charts = {
   temperature: buildChart('temperatureChart', [{ label: 'Temperatura', color: '#ff9f40', key: 'temperature' }]),
   humidity: buildChart('humidityChart', [{ label: 'Humedad', color: '#4bc0c0', key: 'humidity' }]),
   pressure: buildChart('pressureChart', [{ label: 'Presion', color: '#36a2eb', key: 'pressure' }]),
+  distance: buildChart('distanceChart', [{ label: 'Distancia', color: '#ff7043', key: 'distanceToReceiver' }]),
   accel: buildChart('accelChart', [{ label: 'Aceleracion total', color: '#9966ff', key: 'atotal' }]),
   altitude: buildChart('altitudeChart', [
     { label: 'Altitud relativa', color: '#ffcd56', key: 'relativeAltitude' },
@@ -253,6 +259,9 @@ function updateMapTelemetry(data) {
   latestMapCoords = coords;
   document.getElementById('mapLatitudeValue').textContent = latitude.toFixed(6);
   document.getElementById('mapLongitudeValue').textContent = longitude.toFixed(6);
+  if (data.distanceToReceiver !== undefined && data.distanceToReceiver !== null && data.distanceToReceiver !== '') {
+    document.getElementById('mapDistanceValue').textContent = formatMetric(data.distanceToReceiver, 'm');
+  }
   const lastCoord = payloadPathCoordinates[payloadPathCoordinates.length - 1];
   if (!lastCoord || lastCoord[0] !== coords[0] || lastCoord[1] !== coords[1]) {
     payloadPathCoordinates.push(coords);
@@ -399,6 +408,7 @@ function pushTelemetryPoint(sample) {
   chartState.temperature.push(asNumber(sample.temperature));
   chartState.humidity.push(asNumber(sample.humidity));
   chartState.pressure.push(asNumber(sample.pressure));
+  chartState.distanceToReceiver.push(asNumber(sample.distanceToReceiver));
   chartState.atotal.push(asNumber(sample.atotal));
   chartState.relativeAltitude.push(asNumber(sample.relativeAltitude));
   chartState.altitude.push(asNumber(sample.altitude));

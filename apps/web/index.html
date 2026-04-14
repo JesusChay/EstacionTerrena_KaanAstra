@@ -94,13 +94,11 @@
         </article>
 
         <article class="panel info-panel">
-          <h2>Posicion y Estado</h2>
-          <div class="detail-stack">
-            <div class="detail-row"><span>Latitud</span><strong id="latitudeValue">--</strong></div>
-            <div class="detail-row"><span>Longitud</span><strong id="longitudeValue">--</strong></div>
-            <div class="detail-row"><span>Altitud</span><strong id="infoAltitudeValue">--</strong></div>
-            <div class="detail-row"><span>Desacople</span><strong id="decouplingValue">--</strong></div>
-          </div>
+          <h2>Distancia</h2>
+          <canvas id="distanceChart"></canvas>
+          <div class="value-label">Distancia a terrena: <span id="distanceValue">--</span></div>
+          <div class="value-label">TX: <span id="latitudeValue">--</span>, <span id="longitudeValue">--</span></div>
+          <div class="value-label">RX: <span id="receiverLatitudeValue">--</span>, <span id="receiverLongitudeValue">--</span></div>
         </article>
       </section>
     </section>
@@ -117,6 +115,7 @@
         <div class="map-info-row">
           <span>Latitud: <strong id="mapLatitudeValue">--</strong></span>
           <span>Longitud: <strong id="mapLongitudeValue">--</strong></span>
+          <span>Distancia: <strong id="mapDistanceValue">--</strong></span>
         </div>
         <div id="mapView" class="map-surface"></div>
       </article>

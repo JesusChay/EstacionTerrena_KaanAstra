@@ -198,6 +198,12 @@ const velocityChart = createLineChart(
   'Velocidad (m/s)',
   '#ffeb3b'
 );
+const distanceChart = createLineChart(
+  document.getElementById('distanceChart').getContext('2d'),
+  'Distancia',
+  'Distancia (m)',
+  '#ff7043'
+);
 
 window.api.onPayloadData((data) => {
   lastPayloadDataTime = Date.now();
@@ -217,6 +223,7 @@ window.api.onPayloadData((data) => {
   ]);
   pushChartPoint(windChart, data.time, [data.speed !== undefined ? parseFloat(data.speed) : null]);
   pushChartPoint(velocityChart, data.time, [data.velocity !== undefined ? parseFloat(data.velocity) : null]);
+  pushChartPoint(distanceChart, data.time, [data.distanceToReceiver !== undefined ? parseFloat(data.distanceToReceiver) : null]);
 
   if (data.temperature !== undefined) document.getElementById('tempValue').textContent = `${data.temperature}°C`;
   if (data.humidity !== undefined) document.getElementById('humidityValue').textContent = `${data.humidity}%`;
@@ -226,6 +233,7 @@ window.api.onPayloadData((data) => {
   if (data.altitude !== undefined) document.getElementById('absoluteAltitudeValue').textContent = `${data.altitude} m`;
   if (data.speed !== undefined) document.getElementById('windValue').textContent = `${data.speed} m/s`;
   if (data.velocity !== undefined) document.getElementById('velocityValue').textContent = `${data.velocity} m/s`;
+  if (data.distanceToReceiver !== undefined) document.getElementById('distanceValue').textContent = `${data.distanceToReceiver} m`;
 
   if (data.decouplingStatus) {
     showNotification('Rele activado con exito');

@@ -611,6 +611,8 @@ function processPayloadData(message) {
     const altitude = payloadSensors.altitude;
     const latitude = payloadSensors.latitude;
     const longitude = payloadSensors.longitude;
+    const receiverLatitude = payloadSensors.receiverLatitude;
+    const receiverLongitude = payloadSensors.receiverLongitude;
     const decouplingStatus = payloadSensors.decouplingStatus === true;
     const sourceChannel = payloadSensors.sourceChannel;
 
@@ -637,6 +639,11 @@ function processPayloadData(message) {
             velocity = deltaTime > 0 ? dist / deltaTime : 0;
         }
         lastPayloadPosition = { latitude, longitude };
+    }
+
+    let distanceToReceiver = payloadSensors.distanceToReceiver;
+    if (!Number.isFinite(distanceToReceiver) && Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(receiverLatitude) && Number.isFinite(receiverLongitude)) {
+        distanceToReceiver = calculateDistance(receiverLatitude, receiverLongitude, latitude, longitude);
     }
 
     const GRAVITY = 9.81;
@@ -738,6 +745,9 @@ function processPayloadData(message) {
         altitude: format(altitude, 2),
         latitude: Number.isFinite(latitude) ? latitude.toFixed(6) : undefined,
         longitude: Number.isFinite(longitude) ? longitude.toFixed(6) : undefined,
+        receiverLatitude: Number.isFinite(receiverLatitude) ? receiverLatitude.toFixed(6) : undefined,
+        receiverLongitude: Number.isFinite(receiverLongitude) ? receiverLongitude.toFixed(6) : undefined,
+        distanceToReceiver: format(distanceToReceiver, 2),
         velocity: format(velocity, 2),
         velocityZ: format(velocityZ, 2),
         relativeAltitude: format(relativeAltitude, 2),

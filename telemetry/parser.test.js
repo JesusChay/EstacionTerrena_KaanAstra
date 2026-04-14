@@ -51,7 +51,10 @@ test('parsea salida de receptor con TX y RX', () => {
         parseTaggedTelemetry('TX:20.967370,-89.623710 | RX:20.967300,-89.623600 | D=10.20m'),
         {
             latitude: 20.96737,
-            longitude: -89.62371
+            longitude: -89.62371,
+            receiverLatitude: 20.9673,
+            receiverLongitude: -89.6236,
+            distanceToReceiver: 10.2
         }
     );
 });
