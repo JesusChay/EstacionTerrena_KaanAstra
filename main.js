@@ -26,6 +26,23 @@ let lastTelemetryPublishAt = 0;
 
 let accelBias = { x: 0, y: 0, z: 0 };
 let calibrationSamples = [];
+let payloadSources = {
+    lora: {},
+    xbee: {},
+    unknown: {}
+};
+
+const MERGEABLE_TELEMETRY_FIELDS = [
+    'speed', 'temperature', 'humidity', 'pressure',
+    'accelx', 'accely', 'accelz', 'atotal',
+    'gyrox', 'gyroy', 'gyroz', 'gyroxRad', 'gyroyRad', 'gyrozRad',
+    'magx', 'magy', 'magz',
+    'altitude', 'relativeAltitude',
+    'latitude', 'longitude',
+    'receiverLatitude', 'receiverLongitude',
+    'distanceToReceiver', 'velocity', 'velocityZ',
+    'decouplingStatus'
+];
 
 class Quaternion {
     constructor(w, x, y, z) {
@@ -572,9 +589,54 @@ function normalizePressureToHpa(pressure) {
     return pressure > 2000 ? pressure / 100 : pressure;
 }
 
+function isTelemetryValueUsable(key, value) {
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'boolean') return true;
+    if (!Number.isFinite(value)) return false;
+
+    if (key === 'latitude' || key === 'longitude' || key === 'receiverLatitude' || key === 'receiverLongitude') {
+        return value !== 0;
+    }
+
+    return value !== 0;
+}
+
+function getChannelState(sourceChannel) {
+    if (sourceChannel === 'lora' || sourceChannel === 'xbee') {
+        return payloadSources[sourceChannel];
+    }
+    return payloadSources.unknown;
+}
+
+function mergeTelemetrySources(preferredSource) {
+    const preferred = getChannelState(preferredSource);
+    const alternate = preferredSource === 'lora' ? payloadSources.xbee : preferredSource === 'xbee' ? payloadSources.lora : {};
+    const merged = {};
+
+    for (const key of MERGEABLE_TELEMETRY_FIELDS) {
+        const preferredValue = preferred[key];
+        const alternateValue = alternate[key];
+
+        if (isTelemetryValueUsable(key, preferredValue)) {
+            merged[key] = preferredValue;
+        } else if (isTelemetryValueUsable(key, alternateValue)) {
+            merged[key] = alternateValue;
+        } else if (preferredValue !== undefined) {
+            merged[key] = preferredValue;
+        } else if (alternateValue !== undefined) {
+            merged[key] = alternateValue;
+        }
+    }
+
+    merged.sourceChannel = preferredSource || preferred.sourceChannel || alternate.sourceChannel || payloadSensors.sourceChannel;
+    return merged;
+}
+
 function processPayloadData(message) {
     const parsed = parseTelemetryMessage(message);
     if (!parsed) return;
+
+    const sourceChannel = parsed.sourceChannel || 'unknown';
 
     const ACCEL_MAX = 4;
     if (parsed.accelx !== undefined || parsed.accely !== undefined || parsed.accelz !== undefined) {
@@ -588,9 +650,18 @@ function processPayloadData(message) {
         }
     }
 
+    const sourceState = getChannelState(sourceChannel);
     for (const [k, v] of Object.entries(parsed)) {
-        if (v !== undefined) payloadSensors[k] = v;
+        if (v !== undefined) {
+            sourceState[k] = v;
+        }
     }
+    sourceState.sourceChannel = sourceChannel;
+
+    payloadSensors = {
+        ...payloadSensors,
+        ...mergeTelemetrySources(sourceChannel)
+    };
 
     const currentTime = new Date();
     const timeString = currentTime.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour12: false });
@@ -614,7 +685,7 @@ function processPayloadData(message) {
     const receiverLatitude = payloadSensors.receiverLatitude;
     const receiverLongitude = payloadSensors.receiverLongitude;
     const decouplingStatus = payloadSensors.decouplingStatus === true;
-    const sourceChannel = payloadSensors.sourceChannel;
+    const activeSourceChannel = payloadSensors.sourceChannel;
 
     let correctedAccelx;
     let correctedAccely;
@@ -752,7 +823,7 @@ function processPayloadData(message) {
         velocityZ: format(velocityZ, 2),
         relativeAltitude: format(relativeAltitude, 2),
         decouplingStatus,
-        sourceChannel
+        sourceChannel: activeSourceChannel
     };
 
     payloadDataLog.push(payloadData);

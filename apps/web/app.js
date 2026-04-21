@@ -33,6 +33,7 @@ const fieldMap = {
   longitudeValue: (data) => formatMetric(data.longitude, 'coord'),
   receiverLatitudeValue: (data) => formatMetric(data.receiverLatitude, 'coord'),
   receiverLongitudeValue: (data) => formatMetric(data.receiverLongitude, 'coord'),
+  sourceChannelValue: (data) => formatSourceChannel(data.sourceChannel),
   decouplingValue: (data) => data.decouplingStatus ? 'Activo' : 'Inactivo'
 };
 
@@ -709,6 +710,14 @@ function formatMetric(value, type) {
     default:
       return `${value}`;
   }
+}
+
+function formatSourceChannel(value) {
+  if (!value) return '--';
+  const normalized = String(value).toLowerCase();
+  if (normalized === 'lora') return 'LoRa';
+  if (normalized === 'xbee') return 'XBee';
+  return value;
 }
 
 function asNumber(value) {

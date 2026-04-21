@@ -46,6 +46,35 @@ test('parsea mensaje etiquetado de XBEE con mas magnitudes', () => {
     );
 });
 
+test('parsea el formato final emitido por los receptores para la terrena', () => {
+    assert.deepEqual(
+        parseTaggedTelemetry('[LORA] PRES:1013,TEMP:24.5,HUM:60.1,SPEED:3.2,ACCX:12,ACCY:-3,ACCZ:102,GYROX:1,GYROY:0,GYROZ:-1,MAGX:14,MAGY:-2,MAGZ:3,ALT:128,LAT:20.967370,LON:-89.623710,DECOUP:0,RXLAT:20.967100,RXLON:-89.623400,DIST:35.42'),
+        {
+            sourceChannel: 'lora',
+            pressure: 1013,
+            temperature: 24.5,
+            humidity: 60.1,
+            speed: 3.2,
+            accelx: 12,
+            accely: -3,
+            accelz: 102,
+            gyrox: 1,
+            gyroy: 0,
+            gyroz: -1,
+            magx: 14,
+            magy: -2,
+            magz: 3,
+            altitude: 128,
+            latitude: 20.96737,
+            longitude: -89.62371,
+            decouplingStatus: false,
+            receiverLatitude: 20.9671,
+            receiverLongitude: -89.6234,
+            distanceToReceiver: 35.42
+        }
+    );
+});
+
 test('parsea salida de receptor con TX y RX', () => {
     assert.deepEqual(
         parseTaggedTelemetry('TX:20.967370,-89.623710 | RX:20.967300,-89.623600 | D=10.20m'),

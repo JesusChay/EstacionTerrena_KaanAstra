@@ -20,6 +20,7 @@ const allowedFields = [
   'altitude',
   'latitude',
   'longitude',
+  'sourceChannel',
   'receiverLatitude',
   'receiverLongitude',
   'distanceToReceiver',
@@ -52,6 +53,7 @@ const selectFields = [
   'altitude',
   'latitude',
   'longitude',
+  'source_channel AS sourceChannel',
   'receiver_latitude AS receiverLatitude',
   'receiver_longitude AS receiverLongitude',
   'distance_to_receiver AS distanceToReceiver',
@@ -196,10 +198,10 @@ async function insertTelemetry(env, telemetry) {
       accelx, accely, accelz, atotal,
       gyrox, gyroy, gyroz, gyrox_rad, gyroy_rad, gyroz_rad,
       magx, magy, magz,
-      altitude, latitude, longitude, receiver_latitude, receiver_longitude, distance_to_receiver,
+      altitude, latitude, longitude, source_channel, receiver_latitude, receiver_longitude, distance_to_receiver,
       velocity, velocity_z, relative_altitude,
       decoupling_status, received_at_utc
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -224,6 +226,7 @@ async function insertTelemetry(env, telemetry) {
     telemetry.altitude ?? null,
     telemetry.latitude ?? null,
     telemetry.longitude ?? null,
+    telemetry.sourceChannel ?? null,
     telemetry.receiverLatitude ?? null,
     telemetry.receiverLongitude ?? null,
     telemetry.distanceToReceiver ?? null,
@@ -300,6 +303,7 @@ function mapTelemetryRow(row) {
     altitude: row.altitude,
     latitude: row.latitude,
     longitude: row.longitude,
+    sourceChannel: row.sourceChannel,
     receiverLatitude: row.receiverLatitude,
     receiverLongitude: row.receiverLongitude,
     distanceToReceiver: row.distanceToReceiver,
