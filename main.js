@@ -589,6 +589,32 @@ function normalizePressureToHpa(pressure) {
     return pressure > 2000 ? pressure / 100 : pressure;
 }
 
+function normalizeRawSensorUnits(parsed) {
+    const normalized = { ...parsed };
+
+    const accelKeys = ['accelx', 'accely', 'accelz'];
+    const accelValues = accelKeys.map((key) => normalized[key]).filter(Number.isFinite);
+    if (accelValues.length > 0 && accelValues.some((value) => Math.abs(value) > 4)) {
+        accelKeys.forEach((key) => {
+            if (Number.isFinite(normalized[key])) {
+                normalized[key] = normalized[key] / 16384.0;
+            }
+        });
+    }
+
+    const gyroKeys = ['gyrox', 'gyroy', 'gyroz'];
+    const gyroValues = gyroKeys.map((key) => normalized[key]).filter(Number.isFinite);
+    if (gyroValues.length > 0 && gyroValues.some((value) => Math.abs(value) > 250)) {
+        gyroKeys.forEach((key) => {
+            if (Number.isFinite(normalized[key])) {
+                normalized[key] = normalized[key] / 131.0;
+            }
+        });
+    }
+
+    return normalized;
+}
+
 function isTelemetryValueUsable(key, value) {
     if (value === undefined || value === null) return false;
     if (typeof value === 'boolean') return true;
@@ -633,7 +659,7 @@ function mergeTelemetrySources(preferredSource) {
 }
 
 function processPayloadData(message) {
-    const parsed = parseTelemetryMessage(message);
+    const parsed = normalizeRawSensorUnits(parseTelemetryMessage(message));
     if (!parsed) return;
 
     const sourceChannel = parsed.sourceChannel || 'unknown';
