@@ -31,6 +31,8 @@ let payloadSources = {
     xbee: {},
     unknown: {}
 };
+let serialDebugEnabled = true;
+let pendingXbeeTelemetry = {};
 
 const MERGEABLE_TELEMETRY_FIELDS = [
     'speed', 'temperature', 'humidity', 'pressure',
@@ -357,6 +359,136 @@ async function publishTelemetry(payloadData) {
     }
 }
 
+function logSerialDebug(prefix, message) {
+    if (!serialDebugEnabled) return;
+    console.log(`[SERIAL] ${prefix}: ${message}`);
+}
+
+function logTelemetryDebug(prefix, payload) {
+    if (!serialDebugEnabled) return;
+    try {
+        console.log(`[PAYLOAD] ${prefix}: ${JSON.stringify(payload)}`);
+    } catch (error) {
+        console.log(`[PAYLOAD] ${prefix}:`, payload);
+    }
+}
+
+function stripEspLogPrefix(line) {
+    return line
+        .replace(/\x1b\[[0-9;]*m/gi, '')
+        .replace(/\[[0-9;]+m/gi, '')
+        .replace(/^[IWE]\s*\(\d+\)\s+[^:]+:\s*/, '')
+        .trim();
+}
+
+function parseXbeeReceiverLog(line) {
+    const text = stripEspLogPrefix(line);
+    let match;
+
+    if (/^Paquete\s+#/i.test(text)) {
+        pendingXbeeTelemetry = { sourceChannel: 'xbee' };
+        return null;
+    }
+
+    match = text.match(/^Presion:\s*(-?\d+(?:\.\d+)?)\s*hPa/i);
+    if (match) {
+        pendingXbeeTelemetry.pressure = Number.parseFloat(match[1]);
+        return null;
+    }
+
+    match = text.match(/^Temperatura:\s*(-?\d+(?:\.\d+)?)\s*(?:C|grad\/C)/i);
+    if (match) {
+        pendingXbeeTelemetry.temperature = Number.parseFloat(match[1]);
+        return null;
+    }
+
+    match = text.match(/^Acelerometro:\s*X=(-?\d+(?:\.\d+)?)\s*Y=(-?\d+(?:\.\d+)?)\s*Z=(-?\d+(?:\.\d+)?)/i);
+    if (match) {
+        pendingXbeeTelemetry.accelx = Number.parseFloat(match[1]);
+        pendingXbeeTelemetry.accely = Number.parseFloat(match[2]);
+        pendingXbeeTelemetry.accelz = Number.parseFloat(match[3]);
+        return null;
+    }
+
+    match = text.match(/^Giroscopio:\s*X=(-?\d+(?:\.\d+)?)\s*Y=(-?\d+(?:\.\d+)?)\s*Z=(-?\d+(?:\.\d+)?)/i);
+    if (match) {
+        pendingXbeeTelemetry.gyrox = Number.parseFloat(match[1]);
+        pendingXbeeTelemetry.gyroy = Number.parseFloat(match[2]);
+        pendingXbeeTelemetry.gyroz = Number.parseFloat(match[3]);
+        return null;
+    }
+
+    match = text.match(/^Magnetometro:\s*X=(-?\d+(?:\.\d+)?)\s*Y=(-?\d+(?:\.\d+)?)\s*Z=(-?\d+(?:\.\d+)?)/i);
+    if (match) {
+        pendingXbeeTelemetry.magx = Number.parseFloat(match[1]);
+        pendingXbeeTelemetry.magy = Number.parseFloat(match[2]);
+        pendingXbeeTelemetry.magz = Number.parseFloat(match[3]);
+        return null;
+    }
+
+    match = text.match(/^Altitud:\s*(-?\d+(?:\.\d+)?)\s*m/i);
+    if (match) {
+        pendingXbeeTelemetry.altitude = Number.parseFloat(match[1]);
+        return null;
+    }
+
+    match = text.match(/^GPS TX:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
+    if (match) {
+        pendingXbeeTelemetry.latitude = Number.parseFloat(match[1]);
+        pendingXbeeTelemetry.longitude = Number.parseFloat(match[2]);
+        return null;
+    }
+
+    match = text.match(/^DISTANCIA:\s*(-?\d+(?:\.\d+)?)\s*metros/i);
+    if (match) {
+        pendingXbeeTelemetry.distanceToReceiver = Number.parseFloat(match[1]);
+        return null;
+    }
+
+    if (/^GPS Local:\s*sin senal/i.test(text)) {
+        return { ...pendingXbeeTelemetry };
+    }
+
+    if (/^=+$/i.test(text)) {
+        if (Object.keys(pendingXbeeTelemetry).length > 1) {
+            return { ...pendingXbeeTelemetry };
+        }
+    }
+
+    return null;
+}
+
+function formatTaggedTelemetryMessage(source, telemetry) {
+    const fieldMap = {
+        pressure: 'PRES',
+        temperature: 'TEMP',
+        humidity: 'HUM',
+        speed: 'SPEED',
+        accelx: 'ACCX',
+        accely: 'ACCY',
+        accelz: 'ACCZ',
+        gyrox: 'GYROX',
+        gyroy: 'GYROY',
+        gyroz: 'GYROZ',
+        magx: 'MAGX',
+        magy: 'MAGY',
+        magz: 'MAGZ',
+        altitude: 'ALT',
+        latitude: 'LAT',
+        longitude: 'LON',
+        receiverLatitude: 'RXLAT',
+        receiverLongitude: 'RXLON',
+        distanceToReceiver: 'DIST',
+        decouplingStatus: 'DECOUP'
+    };
+
+    const parts = Object.entries(fieldMap)
+        .filter(([key]) => telemetry[key] !== undefined)
+        .map(([key, tag]) => `${tag}:${telemetry[key]}`);
+
+    return `[${source}] ${parts.join(',')}`;
+}
+
 function createWindows() {
     dashboardWindow = new BrowserWindow({
         width: 1200,
@@ -483,40 +615,70 @@ function initializeSerialPort(portName, baudRate = 115200) {
         serialPort = new SerialPort({ path: portName, baudRate: parseInt(baudRate) });
         parser = serialPort.pipe(new ReadlineParser({ delimiter: '\n' }));
 
+        logSerialDebug('INIT', `Escuchando en ${portName} @ ${baudRate}`);
+
         parser.on('data', (line) => {
             const trimmed = line.trim();
             if (!trimmed) return;
 
-            if (!isTelemetryLine(trimmed)) {
+            logSerialDebug('RX', trimmed);
+
+            const cleaned = stripEspLogPrefix(trimmed);
+            if (cleaned !== trimmed) {
+                logSerialDebug('CLEAN', cleaned);
+            }
+
+            const reconstructedXbee = parseXbeeReceiverLog(trimmed);
+            if (reconstructedXbee) {
+                logTelemetryDebug('RECONSTRUCTED_XBEE', reconstructedXbee);
+                processPayloadData(formatTaggedTelemetryMessage('XBEE', reconstructedXbee));
                 return;
             }
 
-            if (trimmed.startsWith('[PAYLOAD]')) {
-                processPayloadData(trimmed.replace('[PAYLOAD]', '').trim());
-            } else if (trimmed.startsWith('[PRIMARY]')) {
+            if (!isTelemetryLine(cleaned)) {
+                logSerialDebug('IGNORED', cleaned);
+                return;
+            }
+
+            if (cleaned.startsWith('[PAYLOAD]')) {
+                processPayloadData(cleaned.replace('[PAYLOAD]', '').trim());
+            } else if (cleaned.startsWith('[PRIMARY]')) {
                 // Legacy firmware format (pre-refactor)
-                processPayloadData(trimmed.replace('[PRIMARY]', '').trim());
-            } else if (trimmed.startsWith('[SECONDARY]')) {
+                processPayloadData(cleaned.replace('[PRIMARY]', '').trim());
+            } else if (cleaned.startsWith('[SECONDARY]')) {
                 // Legacy firmware format (pre-refactor)
-                processPayloadData(trimmed.replace('[SECONDARY]', '').trim());
+                processPayloadData(cleaned.replace('[SECONDARY]', '').trim());
             } else {
                 // Tagged telemetry or raw CSV without tags
-                processPayloadData(trimmed);
+                processPayloadData(cleaned);
             }
         });
 
         serialPort.on('error', (err) => {
             console.error('❌ Error en el puerto serial:', err.message);
-            dashboardWindow.webContents.send('error', 'Error en el puerto serial: ' + err.message);
+            if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+                dashboardWindow.webContents.send('error', 'Error en el puerto serial: ' + err.message);
+            }
+        });
+
+        serialPort.on('close', () => {
+            console.warn('⚠️ Puerto serial cerrado');
+            if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+                dashboardWindow.webContents.send('error', 'Puerto serial cerrado. Verifica la conexion del receptor.');
+            }
         });
 
         serialPort.on('open', () => {
             console.log('✅ Puerto serial abierto:', portName);
-            dashboardWindow.webContents.send('simulation-status', { message: `Conectado al puerto ${portName}` });
+            if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+                dashboardWindow.webContents.send('simulation-status', { message: `Conectado al puerto ${portName}` });
+            }
         });
     } catch (err) {
         console.error('❌ Error al inicializar el puerto:', err.message);
-        dashboardWindow.webContents.send('error', 'No se pudo inicializar el puerto serial: ' + portName);
+        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+            dashboardWindow.webContents.send('error', 'No se pudo inicializar el puerto serial: ' + portName);
+        }
     }
 }
 
@@ -526,7 +688,9 @@ ipcMain.handle('list-serial-ports', async () => {
         return ports.map(port => ({ path: port.path, manufacturer: port.manufacturer || 'Desconocido' }));
     } catch (err) {
         console.error('❌ Error al listar puertos:', err.message);
-        dashboardWindow.webContents.send('error', 'No se pudieron listar los puertos seriales.');
+        if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+            dashboardWindow.webContents.send('error', 'No se pudieron listar los puertos seriales.');
+        }
         return [];
     }
 });
@@ -659,8 +823,15 @@ function mergeTelemetrySources(preferredSource) {
 }
 
 function processPayloadData(message) {
-    const parsed = normalizeRawSensorUnits(parseTelemetryMessage(message));
-    if (!parsed) return;
+    const rawParsed = parseTelemetryMessage(message);
+    if (!rawParsed) {
+        console.warn(`⚠️ No se pudo interpretar la linea serial: ${message}`);
+        return;
+    }
+
+    logTelemetryDebug('PARSED_RAW', rawParsed);
+    const parsed = normalizeRawSensorUnits(rawParsed);
+    logTelemetryDebug('PARSED_NORMALIZED', parsed);
 
     const sourceChannel = parsed.sourceChannel || 'unknown';
 
@@ -669,7 +840,10 @@ function processPayloadData(message) {
         const ax = parsed.accelx;
         const ay = parsed.accely;
         const az = parsed.accelz;
-        if (ax === undefined || ay === undefined || az === undefined) return;
+        if (ax === undefined || ay === undefined || az === undefined) {
+            console.warn('⚠️ Se recibio aceleracion incompleta; se ignora la muestra', parsed);
+            return;
+        }
         if (Math.abs(ax) > ACCEL_MAX || Math.abs(ay) > ACCEL_MAX || Math.abs(az) > ACCEL_MAX) {
             console.warn(`❌ Payload: Aceleracion fuera de rango: (${ax}, ${ay}, ${az})`);
             return;
@@ -851,6 +1025,9 @@ function processPayloadData(message) {
         decouplingStatus,
         sourceChannel: activeSourceChannel
     };
+
+    logTelemetryDebug('MERGED_STATE', payloadSensors);
+    logTelemetryDebug('EMITTED', payloadData);
 
     payloadDataLog.push(payloadData);
     publishTelemetry(payloadData);

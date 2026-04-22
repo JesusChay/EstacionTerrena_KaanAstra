@@ -60,9 +60,9 @@ function isTelemetryLine(line) {
         line.startsWith('[SECONDARY]') ||
         line.startsWith('[LORA]') ||
         line.startsWith('[XBEE]') ||
-        line.includes('LAT:') ||
-        line.includes('LON:') ||
-        line.includes('TX:');
+        /(?:^|[,\s])LAT\s*[:=]/i.test(line) ||
+        /(?:^|[,\s])LON\s*[:=]/i.test(line) ||
+        /^TX\s*:/i.test(line);
 }
 
 function parseTaggedTelemetry(message) {
@@ -80,13 +80,13 @@ function parseTaggedTelemetry(message) {
         parsed.sourceChannel = normalizeSourceChannel(explicitSourceMatch[1]);
     }
 
-    const txMatch = text.match(/TX\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
+    const txMatch = text.match(/^TX\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
     if (txMatch) {
         parsed.latitude = toNumber(txMatch[1]);
         parsed.longitude = toNumber(txMatch[2]);
     }
 
-    const rxMatch = text.match(/RX\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
+    const rxMatch = text.match(/(?:^|\|\s*)RX\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
     if (rxMatch) {
         parsed.receiverLatitude = toNumber(rxMatch[1]);
         parsed.receiverLongitude = toNumber(rxMatch[2]);
