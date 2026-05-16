@@ -267,20 +267,30 @@ window.onload = async () => {
     showNotification('Error al cargar los puertos seriales: ' + err.message);
   }
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
+  fetch('https://ipapi.co/json/')
+    .then(res => res.json())
+    .then(data => {
+      if (data.latitude && data.longitude) {
         window.api.setReceiverLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
+          latitude: data.latitude,
+          longitude: data.longitude
         });
-      },
-      (err) => {
-        console.warn('No se pudo obtener la ubicacion:', err.message);
-      },
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
-  }
+      }
+    })
+    .catch(() => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            window.api.setReceiverLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            });
+          },
+          (err) => console.warn('Geolocation no disponible:', err.message),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }
+    });
 };
 
 document.getElementById('generateReportBtn').addEventListener('click', () => {

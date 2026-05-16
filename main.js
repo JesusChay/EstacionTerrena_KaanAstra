@@ -393,14 +393,6 @@ function createWindows() {
     });
     dashboardWindow.loadFile('dashboard.html');
 
-    dashboardWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-        if (permission === 'geolocation') {
-            callback(true);
-        } else {
-            callback(false);
-        }
-    });
-
     dashboardWindow.on('close', () => {
         if (mapWindow) mapWindow.close();
         if (model3dWindow) model3dWindow.close();
@@ -432,6 +424,14 @@ function createWindows() {
 }
 
 app.whenReady().then(() => {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        if (permission === 'geolocation') {
+            callback(true);
+        } else {
+            callback(false);
+        }
+    });
+
     createWindows();
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindows();
