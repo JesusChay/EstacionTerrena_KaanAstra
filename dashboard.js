@@ -168,12 +168,6 @@ const temperatureChart = createLineChart(
   'Temperatura (°C)',
   '#ff9800'
 );
-const humidityChart = createLineChart(
-  document.getElementById('humidityChart').getContext('2d'),
-  'Humedad',
-  'Humedad (%)',
-  '#4caf50'
-);
 const pressureChart = createLineChart(
   document.getElementById('pressureChart').getContext('2d'),
   'Presion',
@@ -209,7 +203,6 @@ window.api.onPayloadData((data) => {
   lastPayloadDataTime = Date.now();
 
   pushChartPoint(temperatureChart, data.time, [data.temperature !== undefined ? parseFloat(data.temperature) : null]);
-  pushChartPoint(humidityChart, data.time, [data.humidity !== undefined ? parseFloat(data.humidity) : null]);
   pushChartPoint(pressureChart, data.time, [data.pressure !== undefined ? parseFloat(data.pressure) : null]);
   pushChartPoint(altitudeChart, data.time, [
     data.relativeAltitude !== undefined ? parseFloat(data.relativeAltitude) : null,
@@ -226,7 +219,6 @@ window.api.onPayloadData((data) => {
   pushChartPoint(distanceChart, data.time, [data.distanceToReceiver !== undefined ? parseFloat(data.distanceToReceiver) : null]);
 
   if (data.temperature !== undefined) document.getElementById('tempValue').textContent = `${data.temperature}°C`;
-  if (data.humidity !== undefined) document.getElementById('humidityValue').textContent = `${data.humidity}%`;
   if (data.pressure !== undefined) document.getElementById('pressureValue').textContent = `${data.pressure} hPa`;
   if (data.atotal !== undefined) document.getElementById('accelValue').textContent = `${data.atotal} g`;
   if (data.relativeAltitude !== undefined) document.getElementById('altitudeValue').textContent = `${data.relativeAltitude} m`;

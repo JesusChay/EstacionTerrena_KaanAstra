@@ -2,7 +2,6 @@ const allowedFields = [
   'time',
   'speed',
   'temperature',
-  'humidity',
   'pressure',
   'accelx',
   'accely',
@@ -35,7 +34,6 @@ const selectFields = [
   'time',
   'speed',
   'temperature',
-  'humidity',
   'pressure',
   'accelx',
   'accely',
@@ -194,21 +192,20 @@ async function insertTelemetry(env, telemetry) {
   const receivedAtUtc = new Date().toISOString();
   const sql = `
     INSERT INTO telemetry (
-      time, speed, temperature, humidity, pressure,
+      time, speed, temperature, pressure,
       accelx, accely, accelz, atotal,
       gyrox, gyroy, gyroz, gyrox_rad, gyroy_rad, gyroz_rad,
       magx, magy, magz,
       altitude, latitude, longitude, source_channel, receiver_latitude, receiver_longitude, distance_to_receiver,
       velocity, velocity_z, relative_altitude,
       decoupling_status, received_at_utc
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
     telemetry.time ?? null,
     telemetry.speed ?? null,
     telemetry.temperature ?? null,
-    telemetry.humidity ?? null,
     telemetry.pressure ?? null,
     telemetry.accelx ?? null,
     telemetry.accely ?? null,
@@ -285,7 +282,6 @@ function mapTelemetryRow(row) {
     time: row.time,
     speed: row.speed,
     temperature: row.temperature,
-    humidity: row.humidity,
     pressure: row.pressure,
     accelx: row.accelx,
     accely: row.accely,

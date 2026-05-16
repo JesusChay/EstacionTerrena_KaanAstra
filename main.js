@@ -32,10 +32,9 @@ let payloadSources = {
     unknown: {}
 };
 let serialDebugEnabled = true;
-let pendingXbeeTelemetry = {};
 
 const MERGEABLE_TELEMETRY_FIELDS = [
-    'speed', 'temperature', 'humidity', 'pressure',
+    'speed', 'temperature', 'pressure',
     'accelx', 'accely', 'accelz', 'atotal',
     'gyrox', 'gyroy', 'gyroz', 'gyroxRad', 'gyroyRad', 'gyrozRad',
     'magx', 'magy', 'magz',
@@ -381,114 +380,6 @@ function stripEspLogPrefix(line) {
         .trim();
 }
 
-function parseXbeeReceiverLog(line) {
-    const text = stripEspLogPrefix(line);
-    let match;
-
-    if (/^Paquete\s+#/i.test(text)) {
-        pendingXbeeTelemetry = { sourceChannel: 'xbee' };
-        return null;
-    }
-
-    match = text.match(/^Presion:\s*(-?\d+(?:\.\d+)?)\s*hPa/i);
-    if (match) {
-        pendingXbeeTelemetry.pressure = Number.parseFloat(match[1]);
-        return null;
-    }
-
-    match = text.match(/^Temperatura:\s*(-?\d+(?:\.\d+)?)\s*(?:C|grad\/C)/i);
-    if (match) {
-        pendingXbeeTelemetry.temperature = Number.parseFloat(match[1]);
-        return null;
-    }
-
-    match = text.match(/^Acelerometro:\s*X=(-?\d+(?:\.\d+)?)\s*Y=(-?\d+(?:\.\d+)?)\s*Z=(-?\d+(?:\.\d+)?)/i);
-    if (match) {
-        pendingXbeeTelemetry.accelx = Number.parseFloat(match[1]);
-        pendingXbeeTelemetry.accely = Number.parseFloat(match[2]);
-        pendingXbeeTelemetry.accelz = Number.parseFloat(match[3]);
-        return null;
-    }
-
-    match = text.match(/^Giroscopio:\s*X=(-?\d+(?:\.\d+)?)\s*Y=(-?\d+(?:\.\d+)?)\s*Z=(-?\d+(?:\.\d+)?)/i);
-    if (match) {
-        pendingXbeeTelemetry.gyrox = Number.parseFloat(match[1]);
-        pendingXbeeTelemetry.gyroy = Number.parseFloat(match[2]);
-        pendingXbeeTelemetry.gyroz = Number.parseFloat(match[3]);
-        return null;
-    }
-
-    match = text.match(/^Magnetometro:\s*X=(-?\d+(?:\.\d+)?)\s*Y=(-?\d+(?:\.\d+)?)\s*Z=(-?\d+(?:\.\d+)?)/i);
-    if (match) {
-        pendingXbeeTelemetry.magx = Number.parseFloat(match[1]);
-        pendingXbeeTelemetry.magy = Number.parseFloat(match[2]);
-        pendingXbeeTelemetry.magz = Number.parseFloat(match[3]);
-        return null;
-    }
-
-    match = text.match(/^Altitud:\s*(-?\d+(?:\.\d+)?)\s*m/i);
-    if (match) {
-        pendingXbeeTelemetry.altitude = Number.parseFloat(match[1]);
-        return null;
-    }
-
-    match = text.match(/^GPS TX:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i);
-    if (match) {
-        pendingXbeeTelemetry.latitude = Number.parseFloat(match[1]);
-        pendingXbeeTelemetry.longitude = Number.parseFloat(match[2]);
-        return null;
-    }
-
-    match = text.match(/^DISTANCIA:\s*(-?\d+(?:\.\d+)?)\s*metros/i);
-    if (match) {
-        pendingXbeeTelemetry.distanceToReceiver = Number.parseFloat(match[1]);
-        return null;
-    }
-
-    if (/^GPS Local:\s*sin senal/i.test(text)) {
-        return { ...pendingXbeeTelemetry };
-    }
-
-    if (/^=+$/i.test(text)) {
-        if (Object.keys(pendingXbeeTelemetry).length > 1) {
-            return { ...pendingXbeeTelemetry };
-        }
-    }
-
-    return null;
-}
-
-function formatTaggedTelemetryMessage(source, telemetry) {
-    const fieldMap = {
-        pressure: 'PRES',
-        temperature: 'TEMP',
-        humidity: 'HUM',
-        speed: 'SPEED',
-        accelx: 'ACCX',
-        accely: 'ACCY',
-        accelz: 'ACCZ',
-        gyrox: 'GYROX',
-        gyroy: 'GYROY',
-        gyroz: 'GYROZ',
-        magx: 'MAGX',
-        magy: 'MAGY',
-        magz: 'MAGZ',
-        altitude: 'ALT',
-        latitude: 'LAT',
-        longitude: 'LON',
-        receiverLatitude: 'RXLAT',
-        receiverLongitude: 'RXLON',
-        distanceToReceiver: 'DIST',
-        decouplingStatus: 'DECOUP'
-    };
-
-    const parts = Object.entries(fieldMap)
-        .filter(([key]) => telemetry[key] !== undefined)
-        .map(([key, tag]) => `${tag}:${telemetry[key]}`);
-
-    return `[${source}] ${parts.join(',')}`;
-}
-
 function createWindows() {
     dashboardWindow = new BrowserWindow({
         width: 1200,
@@ -628,10 +519,10 @@ function initializeSerialPort(portName, baudRate = 115200) {
                 logSerialDebug('CLEAN', cleaned);
             }
 
-            const reconstructedXbee = parseXbeeReceiverLog(trimmed);
-            if (reconstructedXbee) {
-                logTelemetryDebug('RECONSTRUCTED_XBEE', reconstructedXbee);
-                processPayloadData(formatTaggedTelemetryMessage('XBEE', reconstructedXbee));
+            const parsed = parseTelemetryMessage(cleaned);
+            if (parsed) {
+                logTelemetryDebug('PARSED', parsed);
+                processPayloadData(parsed);
                 return;
             }
 
@@ -643,13 +534,10 @@ function initializeSerialPort(portName, baudRate = 115200) {
             if (cleaned.startsWith('[PAYLOAD]')) {
                 processPayloadData(cleaned.replace('[PAYLOAD]', '').trim());
             } else if (cleaned.startsWith('[PRIMARY]')) {
-                // Legacy firmware format (pre-refactor)
                 processPayloadData(cleaned.replace('[PRIMARY]', '').trim());
             } else if (cleaned.startsWith('[SECONDARY]')) {
-                // Legacy firmware format (pre-refactor)
                 processPayloadData(cleaned.replace('[SECONDARY]', '').trim());
             } else {
-                // Tagged telemetry or raw CSV without tags
                 processPayloadData(cleaned);
             }
         });
@@ -823,7 +711,12 @@ function mergeTelemetrySources(preferredSource) {
 }
 
 function processPayloadData(message) {
-    const rawParsed = parseTelemetryMessage(message);
+    let rawParsed;
+    if (typeof message === 'object' && message !== null) {
+        rawParsed = message;
+    } else if (typeof message === 'string') {
+        rawParsed = parseTelemetryMessage(message);
+    }
     if (!rawParsed) {
         console.warn(`⚠️ No se pudo interpretar la linea serial: ${message}`);
         return;
@@ -868,7 +761,6 @@ function processPayloadData(message) {
 
     const speed = payloadSensors.speed;
     const temperature = payloadSensors.temperature;
-    const humidity = payloadSensors.humidity;
     const pressure = payloadSensors.pressure;
     const accelx = payloadSensors.accelx;
     const accely = payloadSensors.accely;
@@ -998,7 +890,6 @@ function processPayloadData(message) {
         time: timeString,
         speed: Number.isFinite(speed) ? (speed / 3.6).toFixed(2) : undefined,
         temperature: format(temperature, 2),
-        humidity: format(humidity, 2),
         pressure: format(pressure, 2),
         accelx: format(correctedAccelx, 2),
         accely: format(correctedAccely, 2),
@@ -1060,7 +951,6 @@ ipcMain.on('generate-report', () => {
         'Tiempo',
         'Velocidad del viento (m/s)',
         'Temperatura (°C)',
-        'Humedad (%)',
         'Presion (hPa)',
         'Aceleracion X (g)',
         'Aceleracion Y (g)',
@@ -1085,7 +975,6 @@ ipcMain.on('generate-report', () => {
         d.time || '',
         d.speed || '',
         d.temperature || '',
-        d.humidity || '',
         d.pressure || '',
         d.accelx || '',
         d.accely || '',
@@ -1132,7 +1021,6 @@ ipcMain.on('generate-report', () => {
     const stats = {
         speed: calculateStats(payloadDataLog, 'speed'),
         temperature: calculateStats(payloadDataLog, 'temperature'),
-        humidity: calculateStats(payloadDataLog, 'humidity'),
         pressure: calculateStats(payloadDataLog, 'pressure'),
         accelx: calculateStats(payloadDataLog, 'accelx'),
         accely: calculateStats(payloadDataLog, 'accely'),
@@ -1169,17 +1057,12 @@ ipcMain.on('generate-report', () => {
     txtContent += `   - Minimo: ${stats.temperature.min.toFixed(2)}\n`;
     txtContent += `   - Maximo: ${stats.temperature.max.toFixed(2)}\n\n`;
 
-    txtContent += '3. Humedad (%):\n';
-    txtContent += `   - Promedio: ${stats.humidity.avg.toFixed(2)}\n`;
-    txtContent += `   - Minimo: ${stats.humidity.min.toFixed(2)}\n`;
-    txtContent += `   - Maximo: ${stats.humidity.max.toFixed(2)}\n\n`;
-
-    txtContent += '4. Presion (hPa):\n';
+    txtContent += '3. Presion (hPa):\n';
     txtContent += `   - Promedio: ${stats.pressure.avg.toFixed(2)}\n`;
     txtContent += `   - Minimo: ${stats.pressure.min.toFixed(2)}\n`;
     txtContent += `   - Maximo: ${stats.pressure.max.toFixed(2)}\n\n`;
 
-    txtContent += '5. Aceleracion Total (g):\n';
+    txtContent += '4. Aceleracion Total (g):\n';
     txtContent += `   - Promedio: ${stats.atotal.avg.toFixed(2)}\n`;
     txtContent += `   - Minimo: ${stats.atotal.min.toFixed(2)}\n`;
     txtContent += `   - Maximo: ${stats.atotal.max.toFixed(2)}\n\n`;
