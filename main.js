@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
@@ -393,6 +393,14 @@ function createWindows() {
     });
     dashboardWindow.loadFile('dashboard.html');
 
+    dashboardWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+        if (permission === 'geolocation') {
+            callback(true);
+        } else {
+            callback(false);
+        }
+    });
+
     dashboardWindow.on('close', () => {
         if (mapWindow) mapWindow.close();
         if (model3dWindow) model3dWindow.close();
@@ -613,6 +621,17 @@ ipcMain.handle('set-serial-port', async (event, portName) => {
         dashboardWindow.webContents.send('error', `No se pudo establecer el puerto ${portName}.`);
         return { success: false, message: `Error al establecer el puerto ${portName}.` };
     }
+});
+
+ipcMain.handle('set-receiver-location', async (event, coords) => {
+    const { latitude, longitude } = coords || {};
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        payloadSensors.receiverLatitude = latitude;
+        payloadSensors.receiverLongitude = longitude;
+        console.log(`📍 Receptor ubicado en: ${latitude}, ${longitude}`);
+        return { success: true };
+    }
+    return { success: false, message: 'Coordenadas invalidas' };
 });
 
 function calculateDistance(lat1, lon1, lat2, lon2) {

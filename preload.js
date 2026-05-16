@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('api', {
   onSimulationStatus: (callback) => ipcRenderer.on('simulation-status', (event, data) => callback(data)),
   generateReport: () => ipcRenderer.send('generate-report'),
   listSerialPorts: () => ipcRenderer.invoke('list-serial-ports'),
-  setSerialPort: (portName) => ipcRenderer.invoke('set-serial-port', portName)
+  setSerialPort: (portName) => ipcRenderer.invoke('set-serial-port', portName),
+  setReceiverLocation: (coords) => ipcRenderer.invoke('set-receiver-location', coords)
 });

@@ -266,6 +266,21 @@ window.onload = async () => {
   } catch (err) {
     showNotification('Error al cargar los puertos seriales: ' + err.message);
   }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        window.api.setReceiverLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        });
+      },
+      (err) => {
+        console.warn('No se pudo obtener la ubicacion:', err.message);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
 };
 
 document.getElementById('generateReportBtn').addEventListener('click', () => {

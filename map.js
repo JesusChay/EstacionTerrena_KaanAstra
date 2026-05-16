@@ -1,5 +1,6 @@
 let map = null;
 let payloadMarker = null;
+let receiverMarker = null;
 let payloadPath = L.polyline([], { color: 'red' });
 let payloadPathCoordinates = [];
 let firstValidPayloadCoord = false;
@@ -38,8 +39,24 @@ window.api.onPayloadData((data) => {
       map.setView(coords, 13);
       firstValidPayloadCoord = true;
     }
-  } else {
-    console.warn('Coordenadas invalidas para carga:', coords);
+  }
+
+  const rxLat = parseFloat(data.receiverLatitude);
+  const rxLon = parseFloat(data.receiverLongitude);
+  if (!isNaN(rxLat) && !isNaN(rxLon) && !(rxLat === 0 && rxLon === 0)) {
+    const rxCoords = [rxLat, rxLon];
+    if (receiverMarker) {
+      receiverMarker.setLatLng(rxCoords);
+    } else {
+      receiverMarker = L.marker(rxCoords, {
+        icon: L.icon({
+          iconUrl: 'assets/Marcador_Secundaria.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41]
+        })
+      }).addTo(map);
+      receiverMarker.bindPopup('Estación Terrena');
+    }
   }
 });
 
