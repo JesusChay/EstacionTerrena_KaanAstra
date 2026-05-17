@@ -266,31 +266,6 @@ window.onload = async () => {
   } catch (err) {
     showNotification('Error al cargar los puertos seriales: ' + err.message);
   }
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        window.api.setReceiverLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        });
-      },
-      () => {
-        fetch('https://ipapi.co/json/')
-          .then(res => res.json())
-          .then(data => {
-            if (data.latitude && data.longitude) {
-              window.api.setReceiverLocation({
-                latitude: data.latitude,
-                longitude: data.longitude
-              });
-            }
-          })
-          .catch(() => {});
-      },
-      { enableHighAccuracy: false, timeout: 30000 }
-    );
-  }
 };
 
 document.getElementById('generateReportBtn').addEventListener('click', () => {

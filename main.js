@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
@@ -12,7 +12,10 @@ let payloadDataLog = [];
 let simulationInterval = null;
 let simTime = 0;
 
-let payloadSensors = {};
+let payloadSensors = {
+    receiverLatitude: 20.985352,
+    receiverLongitude: -89.691277
+};
 
 let lastPayloadTime = null;
 let lastPayloadUpdateTime = null;
@@ -424,14 +427,6 @@ function createWindows() {
 }
 
 app.whenReady().then(() => {
-    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-        if (permission === 'geolocation') {
-            callback(true);
-        } else {
-            callback(false);
-        }
-    });
-
     createWindows();
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindows();
