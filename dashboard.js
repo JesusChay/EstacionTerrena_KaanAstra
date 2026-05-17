@@ -267,30 +267,30 @@ window.onload = async () => {
     showNotification('Error al cargar los puertos seriales: ' + err.message);
   }
 
-  fetch('https://ipapi.co/json/')
-    .then(res => res.json())
-    .then(data => {
-      if (data.latitude && data.longitude) {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
         window.api.setReceiverLocation({
-          latitude: data.latitude,
-          longitude: data.longitude
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
         });
-      }
-    })
-    .catch(() => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            window.api.setReceiverLocation({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            });
-          },
-          (err) => console.warn('Geolocation no disponible:', err.message),
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      }
-    });
+      },
+      () => {
+        fetch('https://ipapi.co/json/')
+          .then(res => res.json())
+          .then(data => {
+            if (data.latitude && data.longitude) {
+              window.api.setReceiverLocation({
+                latitude: data.latitude,
+                longitude: data.longitude
+              });
+            }
+          })
+          .catch(() => {});
+      },
+      { enableHighAccuracy: false, timeout: 30000 }
+    );
+  }
 };
 
 document.getElementById('generateReportBtn').addEventListener('click', () => {
