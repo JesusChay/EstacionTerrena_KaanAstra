@@ -1,5 +1,7 @@
 # Plataforma web externa
 
+> Nota: este documento conserva decisiones iniciales. La foto operativa usada para la refactorizacion actual vive en `docs/refactor/phase-0-baseline.md`, el contrato compartido vigente vive en `packages/telemetry-contracts/` y la arquitectura actual del API se documenta en `docs/refactor/phase-4-api.md`.
+
 ## Organizacion propuesta del repo
 
 - `apps/web/`

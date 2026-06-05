@@ -8,12 +8,19 @@
     "build": "electron-builder",
     "start:desktop": "electron .",
     "build:desktop": "electron-builder",
-    "test": "node --test telemetry/*.test.js",
+    "sync:contracts": "npm --workspace @kaan-astra/telemetry-contracts run build",
+    "verify:desktop": "node ./scripts/check-physical-station-syntax.mjs",
+    "build:web": "npm run sync:contracts && npm --workspace apps/web run build",
+    "verify:boundaries": "node ./scripts/check-boundaries.mjs",
+    "verify:repo": "npm test && npm run verify:desktop && npm run verify:boundaries && npm run build:web && npm --workspace services/telemetry-api run build",
+    "test": "npm run sync:contracts && node --test telemetry/*.test.js tests/*.test.mjs",
     "dev:api": "npm --workspace services/telemetry-api run dev",
     "deploy:api": "npm --workspace services/telemetry-api run deploy"
   },
   "workspaces": [
-    "services/*"
+    "apps/*",
+    "services/*",
+    "packages/*"
   ],
   "author": "",
   "license": "ISC",
