@@ -1,0 +1,71 @@
+export const selectFields = [
+  'id',
+  'time',
+  'speed',
+  'temperature',
+  'pressure',
+  'accelx',
+  'accely',
+  'accelz',
+  'atotal',
+  'gyrox',
+  'gyroy',
+  'gyroz',
+  'gyrox_rad AS gyroxRad',
+  'gyroy_rad AS gyroyRad',
+  'gyroz_rad AS gyrozRad',
+  'magx',
+  'magy',
+  'magz',
+  'altitude',
+  'latitude',
+  'longitude',
+  'source_channel AS sourceChannel',
+  'receiver_latitude AS receiverLatitude',
+  'receiver_longitude AS receiverLongitude',
+  'distance_to_receiver AS distanceToReceiver',
+  'velocity',
+  'velocity_z AS velocityZ',
+  'relative_altitude AS relativeAltitude',
+  'decoupling_status AS decouplingStatus',
+  'received_at_utc AS receivedAtUtc'
+].join(', ');
+
+export function mapTelemetryRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    time: row.time,
+    speed: row.speed,
+    temperature: row.temperature,
+    pressure: row.pressure,
+    accelx: row.accelx,
+    accely: row.accely,
+    accelz: row.accelz,
+    atotal: row.atotal,
+    gyrox: row.gyrox,
+    gyroy: row.gyroy,
+    gyroz: row.gyroz,
+    gyroxRad: row.gyroxRad,
+    gyroyRad: row.gyroyRad,
+    gyrozRad: row.gyrozRad,
+    magx: row.magx,
+    magy: row.magy,
+    magz: row.magz,
+    altitude: row.altitude,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    sourceChannel: row.sourceChannel,
+    receiverLatitude: row.receiverLatitude,
+    receiverLongitude: row.receiverLongitude,
+    distanceToReceiver: row.distanceToReceiver,
+    velocity: row.velocity,
+    velocityZ: row.velocityZ,
+    relativeAltitude: row.relativeAltitude,
+    decouplingStatus: Boolean(row.decouplingStatus),
+    receivedAtUtc: row.receivedAtUtc
+  };
+}

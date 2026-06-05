@@ -1,0 +1,13 @@
+{
+  "name": "@kaan-astra/telemetry-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Contrato compartido de telemetria para desktop, web y API",
+  "main": "src/index.cjs",
+  "exports": {
+    ".": "./src/index.cjs"
+  },
+  "scripts": {
+    "build": "node ./scripts/sync-web-contract.cjs"
+  }
+}

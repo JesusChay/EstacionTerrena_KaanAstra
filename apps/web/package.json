@@ -1,0 +1,10 @@
+{
+  "name": "@kaan-astra/online-station",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Terrena en linea estatica para KA'AN ASTRA",
+  "scripts": {
+    "build": "node ./scripts/check-syntax.mjs"
+  }
+}
