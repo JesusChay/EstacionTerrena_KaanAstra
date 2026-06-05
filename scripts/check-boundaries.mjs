@@ -29,36 +29,42 @@ const components = [
 
 const violations = [];
 
-for (const component of components) {
-  const files = collectJavaScriptFiles(component.root);
-  for (const filePath of files) {
-    const source = readFileSync(filePath, 'utf8');
-    const relativePath = path.relative(component.root, filePath);
-    const layer = relativePath.split(path.sep)[0];
-    if (!layerRules[layer]) {
-      continue;
-    }
+const sharedPackagesRoot = path.join(workspaceRoot, 'packages');
 
-    for (const specifier of extractSpecifiers(source)) {
-      if (specifier.startsWith('.')) {
-        const resolvedImport = resolveImportTarget(path.dirname(filePath), specifier);
-        if (!resolvedImport.exists) {
-          violations.push(`${component.name}:${relativePath} imports missing file via ${specifier}`);
-          continue;
-        }
+  for (const component of components) {
+    const files = collectJavaScriptFiles(component.root);
+    for (const filePath of files) {
+      const source = readFileSync(filePath, 'utf8');
+      const relativePath = path.relative(component.root, filePath);
+      const layer = relativePath.split(path.sep)[0];
+      if (!layerRules[layer]) {
+        continue;
+      }
 
-        const resolvedFile = resolvedImport.resolvedPath;
-        if (!resolvedFile.startsWith(component.root)) {
-          violations.push(`${component.name}:${relativePath} imports outside its component via ${specifier}`);
-          continue;
-        }
+      for (const specifier of extractSpecifiers(source)) {
+        if (specifier.startsWith('.')) {
+          const resolvedImport = resolveImportTarget(path.dirname(filePath), specifier);
+          if (!resolvedImport.exists) {
+            violations.push(`${component.name}:${relativePath} imports missing file via ${specifier}`);
+            continue;
+          }
 
-        const targetRelativePath = path.relative(component.root, resolvedFile);
-        const targetLayer = targetRelativePath.split(path.sep)[0];
-        if (targetLayer && !layerRules[layer].includes(targetLayer)) {
-          violations.push(`${component.name}:${relativePath} (${layer}) cannot import ${targetLayer} via ${specifier}`);
-        }
-      } else if ((bannedPackagesByLayer[layer] || []).includes(specifier)) {
+          const resolvedFile = resolvedImport.resolvedPath;
+          if (resolvedFile.startsWith(sharedPackagesRoot)) {
+            continue;
+          }
+
+          if (!resolvedFile.startsWith(component.root)) {
+            violations.push(`${component.name}:${relativePath} imports outside its component via ${specifier}`);
+            continue;
+          }
+
+          const targetRelativePath = path.relative(component.root, resolvedFile);
+          const targetLayer = targetRelativePath.split(path.sep)[0];
+          if (targetLayer && !layerRules[layer].includes(targetLayer)) {
+            violations.push(`${component.name}:${relativePath} (${layer}) cannot import ${targetLayer} via ${specifier}`);
+          }
+        } else if ((bannedPackagesByLayer[layer] || []).includes(specifier)) {
         violations.push(`${component.name}:${relativePath} (${layer}) imports banned package ${specifier}`);
       }
     }

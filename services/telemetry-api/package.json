@@ -9,6 +9,9 @@
     "deploy": "wrangler deploy",
     "d1:migrate": "wrangler d1 migrations apply kaan-astra-telemetry"
   },
+  "dependencies": {
+    "@kaan-astra/telemetry-contracts": "*"
+  },
   "devDependencies": {
     "wrangler": "^3.114.0"
   }

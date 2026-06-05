@@ -1,4 +1,4 @@
-import telemetryContracts from '@kaan-astra/telemetry-contracts';
+import telemetryContracts from '../../../../../packages/telemetry-contracts/src/index.cjs';
 
 const { createTelemetryReadModelDto } = telemetryContracts;
 
