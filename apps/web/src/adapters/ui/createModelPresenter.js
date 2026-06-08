@@ -1,6 +1,22 @@
-export function createModelPresenter() {
-  const Three = globalThis.window?.THREE;
-  const MODEL_ASSET_PATH = resolveAssetUrl('assets/cohete.stl');
+import {
+  AmbientLight,
+  ConeGeometry,
+  CylinderGeometry,
+  DirectionalLight,
+  Group,
+  Mesh,
+  MeshPhongMaterial,
+  PerspectiveCamera,
+  Scene,
+  SRGBColorSpace,
+  TorusGeometry,
+  Vector3,
+  WebGLRenderer
+} from 'three';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+
+export function createModelPresenter({ containerElement }) {
+  const MODEL_ASSET_PATH = new URL('../../assets/cohete.stl', import.meta.url).href;
   const TARGET_MODEL_SIZE = 3.2;
   let scene;
   let camera;
@@ -9,28 +25,31 @@ export function createModelPresenter() {
   let fallbackModel;
   let modelContainer;
   let modelInitialized = false;
+  let animationFrameId = null;
 
   function initialize() {
-    if (modelInitialized || !Three) return;
+    if (modelInitialized || !containerElement) return;
 
-    modelContainer = document.getElementById('model3dView');
-    scene = new Three.Scene();
+    modelContainer = containerElement;
+    scene = new Scene();
     scene.background = null;
-    camera = new Three.PerspectiveCamera(60, modelContainer.clientWidth / modelContainer.clientHeight, 0.1, 1000);
-    renderer = new Three.WebGLRenderer({ alpha: true, antialias: true });
+    camera = new PerspectiveCamera(60, modelContainer.clientWidth / modelContainer.clientHeight, 0.1, 1000);
+    renderer = new WebGLRenderer({ alpha: true, antialias: true });
     renderer.setPixelRatio(globalThis.window?.devicePixelRatio || 1);
     renderer.setSize(modelContainer.clientWidth, modelContainer.clientHeight);
-    renderer.outputEncoding = Three.sRGBEncoding;
+    if ('outputColorSpace' in renderer) {
+      renderer.outputColorSpace = SRGBColorSpace;
+    }
     modelContainer.appendChild(renderer.domElement);
 
-    fallbackModel = buildFallbackModel(Three);
+    fallbackModel = buildFallbackModel();
     scene.add(fallbackModel);
     loadRealModel();
 
-    const ambient = new Three.AmbientLight(0xffffff, 0.75);
+    const ambient = new AmbientLight(0xffffff, 0.75);
     scene.add(ambient);
 
-    const directional = new Three.DirectionalLight(0xffffff, 1.2);
+    const directional = new DirectionalLight(0xffffff, 1.2);
     directional.position.set(3, 3, 4);
     scene.add(directional);
 
@@ -42,10 +61,16 @@ export function createModelPresenter() {
   }
 
   function animate() {
-    globalThis.window?.requestAnimationFrame(animate);
-    if (modelInitialized && renderer && scene && camera) {
-      renderer.render(scene, camera);
-    }
+    if (animationFrameId) return;
+
+    const renderFrame = () => {
+      animationFrameId = globalThis.window?.requestAnimationFrame(renderFrame) || null;
+      if (modelInitialized && renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+    };
+
+    renderFrame();
   }
 
   function handleResize() {
@@ -66,25 +91,39 @@ export function createModelPresenter() {
     const gz = Number.isFinite(modelState.gyrozRad) ? modelState.gyrozRad : 0;
 
     applyTelemetryRotation(activeModel, gx, gy, gz);
+  }
 
-    document.getElementById('gyroX').textContent = `X: ${Number.isFinite(gx) ? gx.toFixed(4) : '0.0000'} rad/s`;
-    document.getElementById('gyroY').textContent = `Y: ${Number.isFinite(gy) ? gy.toFixed(4) : '0.0000'} rad/s`;
-    document.getElementById('gyroZ').textContent = `Z: ${Number.isFinite(gz) ? gz.toFixed(4) : '0.0000'} rad/s`;
+  function dispose() {
+    if (animationFrameId) {
+      globalThis.window?.cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+
+    globalThis.window?.removeEventListener('resize', handleResize);
+
+    if (renderer) {
+      renderer.dispose?.();
+    }
+
+    if (renderer?.domElement?.parentNode) {
+      renderer.domElement.parentNode.removeChild(renderer.domElement);
+    }
+
+    renderer = null;
+    scene = null;
+    camera = null;
+    modelObject = null;
+    fallbackModel = null;
+    modelContainer = null;
+    modelInitialized = false;
   }
 
   function loadRealModel() {
-    if (typeof Three.STLLoader === 'undefined') {
-      console.warn('[Model3D] STLLoader no disponible — usando modelo de respaldo');
-      return;
-    }
-
-    console.log('[Model3D] Cargando STL desde:', MODEL_ASSET_PATH);
-    const loader = new Three.STLLoader();
+    const loader = new STLLoader();
     loader.load(
       MODEL_ASSET_PATH,
       (geometry) => {
-        console.log('[Model3D] STL cargado exitosamente');
-        modelObject = buildLoadedModel(Three, geometry, {
+        modelObject = buildLoadedModel(geometry, {
           targetSize: TARGET_MODEL_SIZE,
           positionY: -0.4
         });
@@ -102,29 +141,30 @@ export function createModelPresenter() {
   return {
     initialize,
     animate,
+    dispose,
     handleResize,
     updateTelemetry
   };
 }
 
-function buildFallbackModel(Three) {
-  const group = new Three.Group();
+function buildFallbackModel() {
+  const group = new Group();
   group.userData.baseRotation = { x: 0, y: 0, z: 0 };
 
-  const bodyGeometry = new Three.CylinderGeometry(0.8, 0.8, 2.2, 32);
-  const bodyMaterial = new Three.MeshPhongMaterial({ color: 0x6e7775, shininess: 60 });
-  const body = new Three.Mesh(bodyGeometry, bodyMaterial);
+  const bodyGeometry = new CylinderGeometry(0.8, 0.8, 2.2, 32);
+  const bodyMaterial = new MeshPhongMaterial({ color: 0x6e7775, shininess: 60 });
+  const body = new Mesh(bodyGeometry, bodyMaterial);
   group.add(body);
 
-  const capGeometry = new Three.ConeGeometry(0.82, 0.55, 32);
-  const capMaterial = new Three.MeshPhongMaterial({ color: 0xd8b35e, shininess: 45 });
-  const cap = new Three.Mesh(capGeometry, capMaterial);
+  const capGeometry = new ConeGeometry(0.82, 0.55, 32);
+  const capMaterial = new MeshPhongMaterial({ color: 0xd8b35e, shininess: 45 });
+  const cap = new Mesh(capGeometry, capMaterial);
   cap.position.y = 1.35;
   group.add(cap);
 
-  const baseRing = new Three.Mesh(
-    new Three.TorusGeometry(0.72, 0.06, 16, 40),
-    new Three.MeshPhongMaterial({ color: 0x4bc0c0 })
+  const baseRing = new Mesh(
+    new TorusGeometry(0.72, 0.06, 16, 40),
+    new MeshPhongMaterial({ color: 0x4bc0c0 })
   );
   baseRing.rotation.x = Math.PI / 2;
   baseRing.position.y = -1.1;
@@ -133,19 +173,19 @@ function buildFallbackModel(Three) {
   return group;
 }
 
-function buildLoadedModel(Three, geometry, { targetSize, positionY }) {
+function buildLoadedModel(geometry, { targetSize, positionY }) {
   geometry.center();
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
 
-  const size = new Three.Vector3();
+  const size = new Vector3();
   geometry.boundingBox.getSize(size);
   const maxDimension = Math.max(size.x, size.y, size.z) || 1;
   const scaleFactor = targetSize / maxDimension;
 
-  const mesh = new Three.Mesh(
+  const mesh = new Mesh(
     geometry,
-    new Three.MeshPhongMaterial({
+    new MeshPhongMaterial({
       color: 0xd4d7d9,
       shininess: 75,
       specular: 0x6fd8d8
@@ -164,15 +204,4 @@ function applyTelemetryRotation(mesh, gx, gy, gz) {
   mesh.rotation.x = baseRotation.x + (Number.isFinite(gx) ? gx : 0);
   mesh.rotation.y = baseRotation.y + (Number.isFinite(gy) ? gy : 0);
   mesh.rotation.z = baseRotation.z + (Number.isFinite(gz) ? gz : 0);
-}
-
-function resolveAssetUrl(relativePath) {
-  try {
-    const moduleUrl = new URL('../..', import.meta.url);
-    return new URL(relativePath, moduleUrl).href;
-  } catch {
-    const base = globalThis.window?.location?.href ?? './';
-    const baseDir = base.substring(0, base.lastIndexOf('/') + 1);
-    return baseDir + relativePath;
-  }
 }

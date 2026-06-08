@@ -1,7 +1,9 @@
-import { formatMetric } from './formatters.js';
+import 'leaflet/dist/leaflet.css';
+import Leaflet from 'leaflet';
 
-export function createMapPresenter() {
-  const Leaflet = globalThis.window?.L;
+const PAYLOAD_MARKER_ICON_URL = new URL('../../assets/Marcador_Primaria.png', import.meta.url).href;
+
+export function createMapPresenter({ containerElement }) {
   let map;
   let payloadMarker;
   let payloadPath;
@@ -10,9 +12,9 @@ export function createMapPresenter() {
   let latestMapCoords = null;
 
   function initialize() {
-    if (map || !Leaflet) return;
+    if (map || !containerElement) return;
 
-    map = Leaflet.map('mapView', { zoomControl: true }).setView([19.4326, -99.1332], 13);
+    map = Leaflet.map(containerElement, { zoomControl: true }).setView([19.4326, -99.1332], 13);
     Leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
@@ -51,11 +53,6 @@ export function createMapPresenter() {
 
     const coords = [latitude, longitude];
     latestMapCoords = coords;
-    document.getElementById('mapLatitudeValue').textContent = latitude.toFixed(6);
-    document.getElementById('mapLongitudeValue').textContent = longitude.toFixed(6);
-    if (data.distanceToReceiver !== undefined && data.distanceToReceiver !== null && data.distanceToReceiver !== '') {
-      document.getElementById('mapDistanceValue').textContent = formatMetric(data.distanceToReceiver, 'm');
-    }
 
     const lastCoord = payloadPathCoordinates[payloadPathCoordinates.length - 1];
     if (!lastCoord || lastCoord[0] !== coords[0] || lastCoord[1] !== coords[1]) {
@@ -66,7 +63,7 @@ export function createMapPresenter() {
     if (!payloadMarker) {
       payloadMarker = Leaflet.marker(coords, {
         icon: Leaflet.icon({
-          iconUrl: './assets/Marcador_Primaria.png',
+          iconUrl: PAYLOAD_MARKER_ICON_URL,
           iconSize: [25, 41],
           iconAnchor: [12, 41]
         })
@@ -93,7 +90,21 @@ export function createMapPresenter() {
     }
   }
 
+  function dispose() {
+    if (map) {
+      map.remove();
+      map = null;
+    }
+
+    payloadMarker = null;
+    payloadPath = null;
+    payloadPathCoordinates = [];
+    firstValidPayloadCoord = false;
+    latestMapCoords = null;
+  }
+
   return {
+    dispose,
     initialize,
     sync,
     updateTelemetry,

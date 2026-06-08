@@ -2,7 +2,7 @@ import {
   buildApiUrl,
   getConfiguredApiBaseUrl,
   getApiPaths
-} from '../../application/telemetryApiConfig.js';
+} from './telemetryApiConfig.js';
 
 export function createTelemetryApiClient({
   apiBaseUrl = getConfiguredApiBaseUrl(),
