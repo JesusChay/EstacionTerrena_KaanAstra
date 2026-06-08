@@ -22,6 +22,27 @@ function initializeMap() {
   payloadPath.addTo(map);
 }
 
+function updateReceiverMarker(latitude, longitude) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0)) {
+    return;
+  }
+
+  const receiverCoords = [latitude, longitude];
+  if (receiverMarker) {
+    receiverMarker.setLatLng(receiverCoords);
+    return;
+  }
+
+  receiverMarker = Leaflet.marker(receiverCoords, {
+    icon: Leaflet.icon({
+      iconUrl: RECEIVER_MARKER_ICON_URL,
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    })
+  }).addTo(map);
+  receiverMarker.bindPopup('Estacion Terrena');
+}
+
 window.api.onPayloadData((data) => {
   const coords = [Number.parseFloat(data.latitude), Number.parseFloat(data.longitude)];
   if (!Number.isNaN(coords[0]) && !Number.isNaN(coords[1]) && !(coords[0] === 0 && coords[1] === 0)) {
@@ -46,21 +67,11 @@ window.api.onPayloadData((data) => {
 
   const receiverLatitude = Number.parseFloat(data.receiverLatitude);
   const receiverLongitude = Number.parseFloat(data.receiverLongitude);
-  if (!Number.isNaN(receiverLatitude) && !Number.isNaN(receiverLongitude) && !(receiverLatitude === 0 && receiverLongitude === 0)) {
-    const receiverCoords = [receiverLatitude, receiverLongitude];
-    if (receiverMarker) {
-      receiverMarker.setLatLng(receiverCoords);
-    } else {
-      receiverMarker = Leaflet.marker(receiverCoords, {
-        icon: Leaflet.icon({
-          iconUrl: RECEIVER_MARKER_ICON_URL,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41]
-        })
-      }).addTo(map);
-      receiverMarker.bindPopup('Estacion Terrena');
-    }
-  }
+  updateReceiverMarker(receiverLatitude, receiverLongitude);
+});
+
+window.api.onReceiverLocation((location) => {
+  updateReceiverMarker(location?.latitude, location?.longitude);
 });
 
 window.api.onError((message) => {

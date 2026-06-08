@@ -24,7 +24,7 @@ test('baseline payload fixture covers the shared sample contract exactly', () =>
 });
 
 test('physical station routes payload creation through the telemetry processor and shared contract adapter', () => {
-  const mainSource = readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const processorSource = readFileSync(new URL('../src/application/use-cases/createTelemetryProcessor.js', import.meta.url), 'utf8');
   const adapterSource = readFileSync(new URL('../src/adapters/contracts/toTelemetrySampleDto.js', import.meta.url), 'utf8');
 
