@@ -8,7 +8,7 @@ Cerrar la separacion arquitectonica de las tres cebollas con reglas de dependenc
 
 - el firmware ya no comparte carpeta con el parser serial JS
 - se agrego verificacion automatica de limites de dependencia entre capas
-- los builds de web y API ahora tambien validan imports relativos faltantes
+- el build de web ahora pasa por Vite y el API sigue validando sintaxis e imports relativos faltantes
 - los renderers Electron activos ya viven dentro de `src/adapters/electron/`
 - se documentaron las rutas canonicas y los residuos legacy que quedan por compatibilidad
 
@@ -21,13 +21,14 @@ Cerrar la separacion arquitectonica de las tres cebollas con reglas de dependenc
 - `src/adapters/electron/renderer/dashboard.html`
 - `src/adapters/electron/renderer/map.html`
 - `src/adapters/electron/renderer/model3d.html`
-- `src/adapters/electron/renderer/dashboard.js`
-- `src/adapters/electron/renderer/map.js`
-- `src/adapters/electron/renderer/model3d.js`
+- `src/adapters/electron/renderer/dashboard.mjs`
+- `src/adapters/electron/renderer/map.mjs`
+- `src/adapters/electron/renderer/model3d.mjs`
 - `scripts/check-boundaries.mjs`
 - `scripts/check-physical-station-syntax.mjs`
 - `package.json` con `verify:boundaries` y `verify:repo`
-- `apps/web/scripts/check-syntax.mjs` y `services/telemetry-api/scripts/check-syntax.mjs` con validacion de imports relativos
+- `services/telemetry-api/scripts/check-syntax.mjs` con validacion de imports relativos
+- `apps/web/package.json` y `apps/web/vite.config.js` como build canonico de la web React/Vite
 
 ## Reglas automatizadas
 

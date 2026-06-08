@@ -97,7 +97,7 @@ function collectJavaScriptFiles(directoryPath) {
       continue;
     }
 
-    if (entry.isFile() && fullPath.endsWith('.js')) {
+    if (entry.isFile() && (fullPath.endsWith('.js') || fullPath.endsWith('.jsx') || fullPath.endsWith('.mjs'))) {
       files.push(fullPath);
     }
   }
@@ -127,7 +127,9 @@ function resolveImportTarget(baseDir, specifier) {
   const candidates = [
     directPath,
     `${directPath}.js`,
-    path.join(directPath, 'index.js')
+    `${directPath}.mjs`,
+    path.join(directPath, 'index.js'),
+    path.join(directPath, 'index.mjs')
   ];
 
   const resolvedPath = candidates.find((candidatePath) => exists(candidatePath));

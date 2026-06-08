@@ -6,17 +6,19 @@ Convertir `apps/web/` en la referencia de arquitectura para lectura remota sin t
 
 ## Resultado
 
-- `apps/web/src/bootstrap/main.js` ahora es un composition root pequeno.
-- la logica HTTP fue movida a `apps/web/src/infrastructure/api/telemetryApiClient.js`.
+- `apps/web/src/main.js` funciona hoy como composition root de telemetria.
+- `apps/web/index.html` y `apps/web/src/main.jsx` montan la UI React con Vite.
+- la logica HTTP vive en `apps/web/src/infrastructure/api/telemetryApiClient.js`.
 - los casos de uso de lectura y exportacion viven en `apps/web/src/application/`.
-- la configuracion de consultas vive en `apps/web/src/application/telemetryApiConfig.js`.
+- la configuracion HTTP y de consultas vive en `apps/web/src/infrastructure/api/telemetryApiConfig.js`.
 - la normalizacion del read model y el contrato browser viven en `apps/web/src/adapters/contracts/telemetryReadModel.js`.
 - el fallback demo vive en `apps/web/src/adapters/ui/demoTelemetry.js`.
-- la UI quedo separada en adapters para charts, mapa, modelo 3D, estado y descarga.
+- la UI visible se reparte entre `apps/web/src/App.jsx`, `apps/web/src/useTelemetryApp.js` y `apps/web/src/components/`.
+- charts, mapa, modelo 3D y estado siguen encapsulados en adapters/presenters reutilizables.
 
 ## Estructura principal
 
-- `apps/web/src/application/telemetryApiConfig.js`
+- `apps/web/src/infrastructure/api/telemetryApiConfig.js`
 - `apps/web/src/adapters/contracts/telemetryReadModel.js`
 - `apps/web/src/adapters/ui/demoTelemetry.js`
 - `apps/web/src/application/loadRecentTelemetry.js`
@@ -28,14 +30,20 @@ Convertir `apps/web/` en la referencia de arquitectura para lectura remota sin t
 - `apps/web/src/adapters/ui/createMapPresenter.js`
 - `apps/web/src/adapters/ui/createModelPresenter.js`
 - `apps/web/src/adapters/ui/createStatusPresenter.js`
-- `apps/web/src/adapters/ui/initializeTabs.js`
+- `apps/web/src/adapters/ui/telemetryViewState.js`
+- `apps/web/src/App.jsx`
+- `apps/web/src/useTelemetryApp.js`
+- `apps/web/src/components/TelemetryCharts.jsx`
+- `apps/web/src/components/TelemetryMapPanel.jsx`
+- `apps/web/src/components/TelemetryModelPanel.jsx`
 - `apps/web/src/adapters/contracts/telemetryReadModel.js`
 
 ## Decision tecnica
 
-- `apps/web/src/bootstrap/main.js` se carga como modulo ES desde `apps/web/src/index.html`.
-- `apps/web/src/generated/telemetry-contract.js` sigue siendo un artefacto generado para exponer el contrato al browser sin bundler.
-- `apps/web/package.json` ahora valida sintaxis de todos los modulos con `npm --workspace apps/web run build`.
+- `apps/web/index.html` carga `infrastructure/telemetry-api-runtime-config.js` y el entrypoint `apps/web/src/main.jsx`.
+- `apps/web/src/main.jsx` monta React y delega el flujo de telemetria a `apps/web/src/main.js`.
+- `apps/web/src/generated/telemetry-contract.js` sigue siendo un artefacto generado, pero ahora se importa como modulo ESM dentro del build.
+- `apps/web/package.json` usa `vite build` como verificacion canonica de la web.
 
 ## Alcance
 

@@ -1,3 +1,5 @@
+import Chart from 'chart.js/auto';
+
 let lastPayloadDataTime = null;
 
 function createLineChart(ctx, label, yAxisLabel, color) {
@@ -135,11 +137,11 @@ function pushChartPoint(chart, time, values) {
   if (!chart) return;
   if (chart.data.labels.length > 50) {
     chart.data.labels.splice(0, 1);
-    chart.data.datasets.forEach(ds => ds.data.splice(0, 1));
+    chart.data.datasets.forEach((dataset) => dataset.data.splice(0, 1));
   }
   chart.data.labels.push(time);
-  for (let i = 0; i < chart.data.datasets.length; i++) {
-    chart.data.datasets[i].data.push(values[i] !== undefined ? values[i] : null);
+  for (let index = 0; index < chart.data.datasets.length; index += 1) {
+    chart.data.datasets[index].data.push(values[index] !== undefined ? values[index] : null);
   }
   chart.update();
 }
@@ -150,13 +152,13 @@ function showNotification(message) {
   notification.textContent = message;
   document.body.appendChild(notification);
 
-  setTimeout(() => {
+  globalThis.window.setTimeout(() => {
     notification.classList.add('show');
   }, 100);
 
-  setTimeout(() => {
+  globalThis.window.setTimeout(() => {
     notification.classList.remove('show');
-    setTimeout(() => {
+    globalThis.window.setTimeout(() => {
       notification.remove();
     }, 500);
   }, 3000);
@@ -165,7 +167,7 @@ function showNotification(message) {
 const temperatureChart = createLineChart(
   document.getElementById('temperatureChart').getContext('2d'),
   'Temperatura',
-  'Temperatura (°C)',
+  'Temperatura (degC)',
   '#ff9800'
 );
 const pressureChart = createLineChart(
@@ -202,23 +204,23 @@ const distanceChart = createLineChart(
 window.api.onPayloadData((data) => {
   lastPayloadDataTime = Date.now();
 
-  pushChartPoint(temperatureChart, data.time, [data.temperature !== undefined ? parseFloat(data.temperature) : null]);
-  pushChartPoint(pressureChart, data.time, [data.pressure !== undefined ? parseFloat(data.pressure) : null]);
+  pushChartPoint(temperatureChart, data.time, [data.temperature !== undefined ? Number.parseFloat(data.temperature) : null]);
+  pushChartPoint(pressureChart, data.time, [data.pressure !== undefined ? Number.parseFloat(data.pressure) : null]);
   pushChartPoint(altitudeChart, data.time, [
-    data.relativeAltitude !== undefined ? parseFloat(data.relativeAltitude) : null,
-    data.altitude !== undefined ? parseFloat(data.altitude) : null
+    data.relativeAltitude !== undefined ? Number.parseFloat(data.relativeAltitude) : null,
+    data.altitude !== undefined ? Number.parseFloat(data.altitude) : null
   ]);
   pushChartPoint(accelChart, data.time, [
-    data.accelx !== undefined ? parseFloat(data.accelx) : null,
-    data.accely !== undefined ? parseFloat(data.accely) : null,
-    data.accelz !== undefined ? parseFloat(data.accelz) : null,
-    data.atotal !== undefined ? parseFloat(data.atotal) : null
+    data.accelx !== undefined ? Number.parseFloat(data.accelx) : null,
+    data.accely !== undefined ? Number.parseFloat(data.accely) : null,
+    data.accelz !== undefined ? Number.parseFloat(data.accelz) : null,
+    data.atotal !== undefined ? Number.parseFloat(data.atotal) : null
   ]);
-  pushChartPoint(windChart, data.time, [data.speed !== undefined ? parseFloat(data.speed) : null]);
-  pushChartPoint(velocityChart, data.time, [data.velocity !== undefined ? parseFloat(data.velocity) : null]);
-  pushChartPoint(distanceChart, data.time, [data.distanceToReceiver !== undefined ? parseFloat(data.distanceToReceiver) : null]);
+  pushChartPoint(windChart, data.time, [data.speed !== undefined ? Number.parseFloat(data.speed) : null]);
+  pushChartPoint(velocityChart, data.time, [data.velocity !== undefined ? Number.parseFloat(data.velocity) : null]);
+  pushChartPoint(distanceChart, data.time, [data.distanceToReceiver !== undefined ? Number.parseFloat(data.distanceToReceiver) : null]);
 
-  if (data.temperature !== undefined) document.getElementById('tempValue').textContent = `${data.temperature}°C`;
+  if (data.temperature !== undefined) document.getElementById('tempValue').textContent = `${data.temperature}degC`;
   if (data.pressure !== undefined) document.getElementById('pressureValue').textContent = `${data.pressure} hPa`;
   if (data.atotal !== undefined) document.getElementById('accelValue').textContent = `${data.atotal} g`;
   if (data.relativeAltitude !== undefined) document.getElementById('altitudeValue').textContent = `${data.relativeAltitude} m`;
@@ -244,44 +246,46 @@ window.api.onSimulationStatus((data) => {
   showNotification(data.message);
 });
 
-window.onload = async () => {
+async function initializeDashboard() {
   const select = document.getElementById('serialPortSelect');
   try {
     const ports = await window.api.listSerialPorts();
-    ports.forEach(port => {
+    ports.forEach((port) => {
       const option = document.createElement('option');
       option.value = port.path;
       option.text = `${port.path} (${port.manufacturer || 'Desconocido'})`;
       select.appendChild(option);
     });
 
-    select.addEventListener('change', async (e) => {
-      if (e.target.value) {
-        const result = await window.api.setSerialPort(e.target.value);
+    select.addEventListener('change', async (event) => {
+      if (event.target.value) {
+        const result = await window.api.setSerialPort(event.target.value);
         if (!result.success) {
           showNotification(`Error: ${result.message}`);
         }
       }
     });
-  } catch (err) {
-    showNotification('Error al cargar los puertos seriales: ' + err.message);
+  } catch (error) {
+    showNotification(`Error al cargar los puertos seriales: ${error.message}`);
   }
-};
+}
 
 document.getElementById('generateReportBtn').addEventListener('click', () => {
   window.api.generateReport();
 });
 
-setInterval(() => {
+globalThis.window.setInterval(() => {
   const now = Date.now();
   const threshold = 5000;
 
   const status = document.getElementById('payloadStatus');
   if (lastPayloadDataTime && (now - lastPayloadDataTime) < threshold) {
-    status.textContent = '✅ Recibiendo datos de carga';
+    status.textContent = 'Recibiendo datos de carga';
     status.style.color = '#00ff00';
   } else {
-    status.textContent = '⚠️ No se reciben datos de carga';
+    status.textContent = 'No se reciben datos de carga';
     status.style.color = '#ff0000';
   }
 }, 1000);
+
+initializeDashboard();

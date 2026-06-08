@@ -6,7 +6,7 @@ Repositorio principal de la estacion terrena fisica, la terrena en linea y el AP
 
 - `main.js`: composition root actual de la estacion terrena fisica.
 - `src/adapters/electron/`: preload y renderers Electron actuales.
-- `apps/web/`: interfaz web externa pensada para Cloudflare Pages.
+- `apps/web/`: interfaz web React + Vite desplegable en Cloudflare Pages.
 - `services/telemetry-api/`: API de ingesta para recibir telemetria desde la estacion terrena en Cloudflare Workers.
 - `docs/web-platform-plan.md`: decisiones iniciales de arquitectura y contrato de datos.
 - `docs/refactor/phase-0-baseline.md`: baseline actual del sistema, contrato real y pruebas de caracterizacion.
@@ -26,7 +26,7 @@ Repositorio principal de la estacion terrena fisica, la terrena en linea y el AP
 ## Estado
 
 - La app Electron sigue funcionando desde la raiz con `npm start`.
-- La web ya tiene un dashboard inicial desacoplado en `apps/web/`.
+- La web ya corre desde `apps/web/index.html`, `apps/web/src/main.jsx` y `apps/web/src/main.js`.
 - La API ya expone endpoints activos en `services/telemetry-api/`.
 - La persistencia actual del API usa Cloudflare D1.
 
@@ -34,7 +34,7 @@ Repositorio principal de la estacion terrena fisica, la terrena en linea y el AP
 
 - `src/`: estacion terrena fisica ya con dominio, use cases, infraestructura y adapters activos.
 - `src/adapters/electron/renderer/`: ventanas `dashboard`, `map` y `model3d` movidas fuera de la raiz.
-- `apps/web/src/`: terrena en linea ya separada en `domain`, `application`, `infrastructure` y `adapters`.
+- `apps/web/`: terrena en linea en React/Vite; `src/` ya usa `application`, `infrastructure` y `adapters`, con `domain` aun reservado.
 - `services/telemetry-api/src/`: API ya separado en `domain`, `application`, `infrastructure` y `adapters`.
 - `packages/telemetry-contracts/`: contrato compartido activo para campos, rutas y limites de telemetria.
 - `firmware/`: codigo embebido separado en `firmware/cansat/` y `firmware/ground-station/`.
@@ -49,4 +49,4 @@ Repositorio principal de la estacion terrena fisica, la terrena en linea y el AP
 
 ## Residual
 
-- la deuda restante ya no es de archivos legacy activos, sino de evolucion futura de renderers y docs historicas.
+- siguen existiendo renderers Electron legacy activos y documentos historicos de refactor que requieren mantenimiento cuando cambia la estructura web.

@@ -25,5 +25,5 @@ Preparar el repo para tres arquitecturas de cebolla separadas sin mover todavia 
 
 ## Decision operativa
 
-- `main.js`, `apps/web/src/bootstrap/main.js` y `services/telemetry-api/src/index.js` siguen siendo entrypoints activos durante esta fase
+- `main.js`, `apps/web/index.html` + `apps/web/src/main.jsx` y `services/telemetry-api/src/index.js` siguen siendo entrypoints activos en la estructura vigente
 - el movimiento de logica hacia las carpetas nuevas empieza en las siguientes fases

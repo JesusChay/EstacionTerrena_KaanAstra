@@ -18,7 +18,7 @@ Congelar el comportamiento observable antes de mover logica hacia las nuevas cap
 4. `payloadData` se emite por IPC a las ventanas Electron con el canal `payload-data`.
 5. `main.js` publica la misma muestra al endpoint `POST /api/telemetry`.
 6. `services/telemetry-api/src/index.js` valida el payload y lo persiste en D1.
-7. `apps/web/src/bootstrap/main.js` consulta `GET /api/latest`, `GET /api/recent` y `GET /api/report`.
+7. `apps/web/src/main.jsx` monta la UI React y `apps/web/src/main.js` consulta `GET /api/latest`, `GET /api/recent` y `GET /api/report`.
 
 ## Payload canonico actual
 
