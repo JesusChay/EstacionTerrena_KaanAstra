@@ -1,4 +1,14 @@
 function buildDesktopReportArtifacts({ samples, isSimulation, generatedAt = new Date() }) {
+    const since = new Date(generatedAt.getTime() - 2 * 60 * 60 * 1000);
+    const recentSamples = samples.filter(function (s) {
+        var ts = s.receivedAt ? new Date(s.receivedAt) : null;
+        return ts && ts >= since;
+    });
+
+    if (recentSamples.length === 0) {
+        throw new Error('No hay datos de las ultimas 2 horas para generar el reporte');
+    }
+
     const headers = [
         'Tiempo',
         'Velocidad del viento (m/s)',
@@ -23,7 +33,7 @@ function buildDesktopReportArtifacts({ samples, isSimulation, generatedAt = new 
         'Desacople'
     ];
 
-    const rows = samples.map((sample) => ([
+    const rows = recentSamples.map((sample) => ([
         sample.time || '',
         sample.speed || '',
         sample.temperature || '',
@@ -55,7 +65,7 @@ function buildDesktopReportArtifacts({ samples, isSimulation, generatedAt = new 
             rows
         },
         analysisText: buildAnalysisReport({
-            samples,
+            samples: recentSamples,
             generatedAt,
             isSimulation
         })
