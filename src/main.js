@@ -82,7 +82,7 @@ const desktopReportWriter = createDesktopReportWriter({
     fs,
     path,
     XLSX,
-    documentsPathProvider: () => app.getPath('documents')
+    documentsPathProvider: () => app.getPath('downloads')
 });
 
 const telemetryProcessor = createTelemetryProcessor({
@@ -363,7 +363,7 @@ function processPayloadData(message) {
     const payloadData = toTelemetrySampleDto(processedTelemetry);
     logTelemetryDebug('EMITTED', payloadData);
 
-    payloadDataLog.push(payloadData);
+    payloadDataLog.push({ ...payloadData, receivedAt: new Date().toISOString() });
     telemetryPublisher.publish(payloadData);
     broadcastPayloadData([dashboardWindow, mapWindow, model3dWindow], payloadData);
 }

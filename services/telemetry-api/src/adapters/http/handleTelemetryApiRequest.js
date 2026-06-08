@@ -71,13 +71,16 @@ export async function handleTelemetryApiRequest(request, env) {
 
     if (request.method === 'GET' && url.pathname === TELEMETRY_API_ROUTES.report) {
       const limit = resolveQueryLimit(url.searchParams.get('limit'), TELEMETRY_LIMITS.report.default, TELEMETRY_LIMITS.report.max);
-      const report = await getTelemetryReport({ repository, limit });
+      const sinceParam = url.searchParams.get('since');
+      const since = sinceParam || new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const report = await getTelemetryReport({ repository, limit, since });
 
       return json({
         ok: true,
         telemetry: toTelemetryReadModelDtos(report.telemetry),
         count: report.count,
-        persistence: telemetryPersistenceName
+        persistence: telemetryPersistenceName,
+        since
       });
     }
 

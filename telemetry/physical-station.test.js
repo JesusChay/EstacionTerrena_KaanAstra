@@ -105,7 +105,8 @@ test('buildDesktopReportArtifacts keeps report semantics in application', () => 
         longitude: '-89.000001',
         velocity: '2.00',
         velocityZ: '-0.10',
-        decouplingStatus: false
+        decouplingStatus: false,
+        receivedAt: '2026-06-05T11:30:00.000Z'
       }
     ],
     isSimulation: true,

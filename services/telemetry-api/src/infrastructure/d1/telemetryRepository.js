@@ -76,11 +76,15 @@ export function createTelemetryRepository({ db, now = () => new Date().toISOStri
       return rows.map(mapTelemetryRow).reverse();
     },
 
-    async readReportTelemetry(limit) {
-      const result = await db
-        .prepare(`SELECT ${selectFields} FROM telemetry ORDER BY id ASC LIMIT ?`)
-        .bind(limit)
-        .all();
+    async readReportTelemetry(limit, since) {
+      const query = since
+        ? `SELECT ${selectFields} FROM telemetry WHERE received_at_utc >= ? ORDER BY id ASC LIMIT ?`
+        : `SELECT ${selectFields} FROM telemetry ORDER BY id ASC LIMIT ?`;
+
+      const stmt = db.prepare(query);
+      const result = since
+        ? await stmt.bind(since, limit).all()
+        : await stmt.bind(limit).all();
 
       const rows = Array.isArray(result.results) ? result.results : [];
       return rows.map(mapTelemetryRow);
