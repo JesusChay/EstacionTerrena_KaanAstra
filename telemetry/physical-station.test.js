@@ -21,8 +21,9 @@ test('createTelemetryProcessor returns an internal processed telemetry model', (
   assert.equal(processedTelemetry.temperature, 24.5);
   assert.equal(processedTelemetry.altitude, 128.4);
   assert.equal(processedTelemetry.sourceChannel, 'lora');
-  assert.equal(processedTelemetry.receiverLatitude, 20.985352);
-  assert.equal(processedTelemetry.receiverLongitude, -89.691277);
+  assert.equal(processedTelemetry.receiverLatitude, undefined);
+  assert.equal(processedTelemetry.receiverLongitude, undefined);
+  assert.equal(processedTelemetry.distanceToReceiver, undefined);
 });
 
 test('toTelemetrySampleDto maps the processed model to the shared contract', () => {
@@ -37,8 +38,9 @@ test('toTelemetrySampleDto maps the processed model to the shared contract', () 
   assert.equal(payload.temperature, '24.50');
   assert.equal(payload.altitude, '128.40');
   assert.equal(payload.sourceChannel, 'lora');
-  assert.equal(payload.receiverLatitude, '20.985352');
-  assert.equal(payload.receiverLongitude, '-89.691277');
+  assert.equal(payload.receiverLatitude, undefined);
+  assert.equal(payload.receiverLongitude, undefined);
+  assert.equal(payload.distanceToReceiver, undefined);
 });
 
 test('createTelemetryProcessor applies receiver location updates to future payloads', () => {
@@ -52,6 +54,7 @@ test('createTelemetryProcessor applies receiver location updates to future paylo
   const processedTelemetry = processor.process(LORA_LINE);
   assert.equal(processedTelemetry.receiverLatitude, 21.1234567);
   assert.equal(processedTelemetry.receiverLongitude, -88.7654321);
+  assert.equal(Number.isFinite(processedTelemetry.distanceToReceiver), true);
 });
 
 test('createTelemetryProcessor rejects incomplete acceleration payloads', () => {

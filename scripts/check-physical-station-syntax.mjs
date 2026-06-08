@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const files = [
-  path.join(workspaceRoot, 'main.js'),
   ...collectJavaScriptFiles(path.join(workspaceRoot, 'src'))
 ];
 

@@ -9,12 +9,9 @@ function createTelemetryProcessor({
     debugLogger = () => {},
     warnLogger = () => {},
     infoLogger = () => {},
-    initialReceiverLocation = {
-        receiverLatitude: 20.985352,
-        receiverLongitude: -89.691277
-    }
+    initialReceiverLocation = {}
 } = {}) {
-    let payloadSensors = { ...initialReceiverLocation };
+    let payloadSensors = sanitizeReceiverLocation(initialReceiverLocation);
     let lastPayloadTime = null;
     let lastPayloadUpdateTime = null;
     let lastPayloadPosition = null;
@@ -119,7 +116,7 @@ function createTelemetryProcessor({
         }
 
         let distanceToReceiver = payloadSensors.distanceToReceiver;
-        if (!Number.isFinite(distanceToReceiver) && Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(receiverLatitude) && Number.isFinite(receiverLongitude)) {
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(receiverLatitude) && Number.isFinite(receiverLongitude)) {
             distanceToReceiver = calculateDistance(receiverLatitude, receiverLongitude, latitude, longitude);
         }
 
@@ -197,6 +194,18 @@ function createTelemetryProcessor({
         }
 
         return false;
+    }
+
+    function getReceiverLocation() {
+        const { receiverLatitude, receiverLongitude } = payloadSensors;
+        if (!Number.isFinite(receiverLatitude) || !Number.isFinite(receiverLongitude)) {
+            return null;
+        }
+
+        return {
+            latitude: receiverLatitude,
+            longitude: receiverLongitude
+        };
     }
 
     function calibrateAccelerometer(accelx, accely, accelz) {
@@ -295,10 +304,20 @@ function createTelemetryProcessor({
     }
 
     return {
+        getReceiverLocation,
         process,
         setReceiverLocation,
         getPayloadSensors: () => ({ ...payloadSensors })
     };
+}
+
+function sanitizeReceiverLocation(initialReceiverLocation = {}) {
+    const receiverLatitude = initialReceiverLocation.receiverLatitude;
+    const receiverLongitude = initialReceiverLocation.receiverLongitude;
+
+    return Number.isFinite(receiverLatitude) && Number.isFinite(receiverLongitude)
+        ? { receiverLatitude, receiverLongitude }
+        : {};
 }
 
 function validateAcceleration(parsed) {
