@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com;
-    style-src 'self' 'unsafe-inline' https://unpkg.com;
-    img-src 'self' data: https://unpkg.com;
+    default-src 'self' file:;
+    script-src 'self' file: 'unsafe-inline';
+    style-src 'self' file:;
+    img-src 'self' file: data:;
   ">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Modelo 3D - KA'AN ASTRA</title>
@@ -34,7 +34,14 @@
     </div>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/STLLoader.js"></script>
-  <script src="./model3d.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../../../../node_modules/three/build/three.module.js",
+        "three/": "../../../../node_modules/three/"
+      }
+    }
+  </script>
+  <script type="module" src="./model3d.mjs"></script>
+</body>
 </html>

@@ -3,8 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Terrena en linea estatica para KA'AN ASTRA",
+  "description": "Terrena en linea React para KA'AN ASTRA",
   "scripts": {
-    "build": "node ./scripts/check-syntax.mjs"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.4",
+    "leaflet": "^1.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.167.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.10"
   }
 }

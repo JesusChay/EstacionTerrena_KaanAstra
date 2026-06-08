@@ -1,7 +1,15 @@
-const MODEL_ASSET_PATH = '../../../../assets/cohete.stl';
+import * as THREE from 'three';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+
+const MODEL_ASSET_PATH = new URL('../../../../assets/cohete.stl', import.meta.url).href;
 const TARGET_MODEL_SIZE = 3.2;
 
-let scene, camera, renderer, activeModel, fallbackModel, light;
+let scene;
+let camera;
+let renderer;
+let activeModel;
+let fallbackModel;
+let light;
 let model3dInitialized = false;
 
 function initializeModel3D() {
@@ -12,7 +20,7 @@ function initializeModel3D() {
   const container = document.getElementById('model3d');
   camera = new THREE.PerspectiveCamera(75, container.offsetWidth / container.offsetHeight, 0.1, 1000);
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setPixelRatio(globalThis.window.devicePixelRatio || 1);
   renderer.setSize(container.offsetWidth, container.offsetHeight);
   container.appendChild(renderer.domElement);
 
@@ -31,13 +39,13 @@ function initializeModel3D() {
   camera.position.z = 5;
   camera.lookAt(0, 0, 0);
 
-  window.addEventListener('resize', handleResize);
+  globalThis.window.addEventListener('resize', handleResize);
 
   model3dInitialized = true;
 }
 
 function animate() {
-  requestAnimationFrame(animate);
+  globalThis.window.requestAnimationFrame(animate);
   if (model3dInitialized && activeModel) {
     renderer.render(scene, camera);
   }
@@ -53,11 +61,7 @@ function handleResize() {
 }
 
 function loadRocketModel() {
-  if (typeof THREE.STLLoader === 'undefined') {
-    return;
-  }
-
-  const loader = new THREE.STLLoader();
+  const loader = new STLLoader();
   loader.load(
     MODEL_ASSET_PATH,
     (geometry) => {
@@ -73,18 +77,13 @@ function loadRocketModel() {
   );
 }
 
-window.onload = () => {
-  initializeModel3D();
-  animate();
-};
-
 window.api.onPayloadData((data) => {
   if (activeModel) {
-    const gx = data.gyroxRad !== undefined ? parseFloat(data.gyroxRad) : (data.gyrox !== undefined ? parseFloat(data.gyrox) * 0.0174533 : 0);
-    const gy = data.gyroyRad !== undefined ? parseFloat(data.gyroyRad) : (data.gyroy !== undefined ? parseFloat(data.gyroy) * 0.0174533 : 0);
-    const gz = data.gyrozRad !== undefined ? parseFloat(data.gyrozRad) : (data.gyroz !== undefined ? parseFloat(data.gyroz) * 0.0174533 : 0);
+    const gyroxRad = data.gyroxRad !== undefined ? Number.parseFloat(data.gyroxRad) : (data.gyrox !== undefined ? Number.parseFloat(data.gyrox) * 0.0174533 : 0);
+    const gyroyRad = data.gyroyRad !== undefined ? Number.parseFloat(data.gyroyRad) : (data.gyroy !== undefined ? Number.parseFloat(data.gyroy) * 0.0174533 : 0);
+    const gyrozRad = data.gyrozRad !== undefined ? Number.parseFloat(data.gyrozRad) : (data.gyroz !== undefined ? Number.parseFloat(data.gyroz) * 0.0174533 : 0);
 
-    applyTelemetryRotation(activeModel, gx, gy, gz);
+    applyTelemetryRotation(activeModel, gyroxRad, gyroyRad, gyrozRad);
   }
 
   if (data.gyroxRad !== undefined) document.getElementById('gyroX').textContent = `X: ${data.gyroxRad} rad/s`;
@@ -93,7 +92,7 @@ window.api.onPayloadData((data) => {
 });
 
 window.api.onError((message) => {
-  alert(message);
+  globalThis.window.alert(message);
 });
 
 function buildFallbackModel() {
@@ -137,3 +136,6 @@ function applyTelemetryRotation(mesh, gx, gy, gz) {
   mesh.rotation.y = baseRotation.y + (Number.isFinite(gy) ? gy : 0);
   mesh.rotation.z = baseRotation.z + (Number.isFinite(gz) ? gz : 0);
 }
+
+initializeModel3D();
+animate();

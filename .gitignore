@@ -2,3 +2,4 @@ node_modules/
 dist/
 .wrangler/
 npm-debug.log*
+.DS_Store

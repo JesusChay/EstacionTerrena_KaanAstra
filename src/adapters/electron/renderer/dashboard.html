@@ -3,9 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file:; img-src 'self' file: data:">
   <title>KA'AN ASTRA Dashboard</title>
   <link rel="stylesheet" href="./dashboard.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "chart.js/auto": "../../../../node_modules/chart.js/auto/auto.js",
+        "@kurkle/color": "../../../../node_modules/@kurkle/color/dist/color.esm.js"
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="connection-status">
@@ -74,6 +82,6 @@
     <button id="generateReportBtn">Generar Reporte</button>
   </div>
 
-  <script src="./dashboard.js"></script>
+  <script type="module" src="./dashboard.mjs"></script>
 </body>
 </html>
