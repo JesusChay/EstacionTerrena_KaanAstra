@@ -1,7 +1,26 @@
+import {
+  CategoryScale,
+  Chart,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip
+} from 'chart.js';
 import { asNumber } from './formatters.js';
 
-export function createChartsPresenter({ historyLimit }) {
-  const ChartLibrary = globalThis.window?.Chart;
+Chart.register(
+  LineController,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Legend,
+  Tooltip
+);
+
+export function createChartsPresenter({ historyLimit, canvasElements }) {
   const chartState = {
     labels: [],
     temperature: [],
@@ -16,16 +35,16 @@ export function createChartsPresenter({ historyLimit }) {
   };
 
   const charts = {
-    temperature: buildChart(ChartLibrary, 'temperatureChart', [{ label: 'Temperatura', color: '#ff9f40', key: 'temperature' }]),
-    pressure: buildChart(ChartLibrary, 'pressureChart', [{ label: 'Presion', color: '#36a2eb', key: 'pressure' }]),
-    distance: buildChart(ChartLibrary, 'distanceChart', [{ label: 'Distancia', color: '#ff7043', key: 'distanceToReceiver' }]),
-    accel: buildChart(ChartLibrary, 'accelChart', [{ label: 'Aceleracion total', color: '#9966ff', key: 'atotal' }]),
-    altitude: buildChart(ChartLibrary, 'altitudeChart', [
+    temperature: buildChart(canvasElements.temperature, [{ label: 'Temperatura', color: '#ff9f40', key: 'temperature' }]),
+    pressure: buildChart(canvasElements.pressure, [{ label: 'Presion', color: '#36a2eb', key: 'pressure' }]),
+    distance: buildChart(canvasElements.distance, [{ label: 'Distancia', color: '#ff7043', key: 'distanceToReceiver' }]),
+    accel: buildChart(canvasElements.accel, [{ label: 'Aceleracion total', color: '#9966ff', key: 'atotal' }]),
+    altitude: buildChart(canvasElements.altitude, [
       { label: 'Altitud relativa', color: '#ffcd56', key: 'relativeAltitude' },
       { label: 'Altitud absoluta', color: '#ff6384', key: 'altitude' }
     ]),
-    wind: buildChart(ChartLibrary, 'windChart', [{ label: 'Viento', color: '#4bc0c0', key: 'wind' }]),
-    velocity: buildChart(ChartLibrary, 'velocityChart', [
+    wind: buildChart(canvasElements.wind, [{ label: 'Viento', color: '#4bc0c0', key: 'wind' }]),
+    velocity: buildChart(canvasElements.velocity, [
       { label: 'Velocidad', color: '#36a2eb', key: 'velocity' },
       { label: 'Velocidad Z', color: '#ff6384', key: 'velocityZ' }
     ])
@@ -85,19 +104,26 @@ export function createChartsPresenter({ historyLimit }) {
     });
   }
 
+  function dispose() {
+    Object.values(charts).forEach(({ chart }) => {
+      chart?.destroy();
+    });
+  }
+
   return {
+    dispose,
     sync,
     append
   };
 }
 
-function buildChart(ChartLibrary, elementId, series) {
-  if (!ChartLibrary) {
+function buildChart(canvasElement, series) {
+  if (!canvasElement) {
     return { chart: null, series };
   }
 
   return {
-    chart: new ChartLibrary(document.getElementById(elementId), {
+    chart: new Chart(canvasElement, {
       type: 'line',
       data: {
         labels: [],
@@ -135,18 +161,18 @@ function buildChartOptions() {
           boxWidth: 10,
           font: {
             family: 'Arial',
-            size: 10
+            size: 13
           }
         }
       }
     },
     scales: {
       x: {
-        ticks: { color: '#c8d9dd', font: { size: 9 } },
+        ticks: { color: '#c8d9dd', font: { size: 12 } },
         grid: { color: 'rgba(255,255,255,0.06)' }
       },
       y: {
-        ticks: { color: '#c8d9dd', font: { size: 9 } },
+        ticks: { color: '#c8d9dd', font: { size: 12 } },
         grid: { color: 'rgba(255,255,255,0.06)' }
       }
     }
