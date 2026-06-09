@@ -10,7 +10,7 @@ const MERGEABLE_TELEMETRY_FIELDS = [
     'decouplingStatus'
 ];
 
-function isTelemetryValueUsable(key, value) {
+function isTelemetryValueUsable(key, value, sourceState = {}) {
     if (value === undefined || value === null) {
         return false;
     }
@@ -24,10 +24,35 @@ function isTelemetryValueUsable(key, value) {
     }
 
     if (key === 'latitude' || key === 'longitude' || key === 'receiverLatitude' || key === 'receiverLongitude') {
-        return value !== 0;
+        return isCoordinateValueUsable(key, value, sourceState);
     }
 
-    return value !== 0;
+    return true;
+}
+
+function isCoordinateValueUsable(key, value, sourceState = {}) {
+    if (value !== 0) {
+        return true;
+    }
+
+    const counterpartKey = key === 'latitude'
+        ? 'longitude'
+        : key === 'longitude'
+            ? 'latitude'
+            : key === 'receiverLatitude'
+                ? 'receiverLongitude'
+                : 'receiverLatitude';
+    const counterpartValue = sourceState[counterpartKey];
+
+    return Number.isFinite(counterpartValue) && counterpartValue !== 0;
+}
+
+function shouldKeepRejectedTelemetryValue(key, value, sourceState = {}) {
+    if (key === 'latitude' || key === 'longitude' || key === 'receiverLatitude' || key === 'receiverLongitude') {
+        return isCoordinateValueUsable(key, value, sourceState);
+    }
+
+    return true;
 }
 
 function getChannelState(payloadSources, sourceChannel) {
@@ -51,13 +76,13 @@ function mergeTelemetrySources({ preferredSource, payloadSources, fallbackState 
         const preferredValue = preferred[key];
         const alternateValue = alternate[key];
 
-        if (isTelemetryValueUsable(key, preferredValue)) {
+        if (isTelemetryValueUsable(key, preferredValue, preferred)) {
             merged[key] = preferredValue;
-        } else if (isTelemetryValueUsable(key, alternateValue)) {
+        } else if (isTelemetryValueUsable(key, alternateValue, alternate)) {
             merged[key] = alternateValue;
-        } else if (preferredValue !== undefined) {
+        } else if (preferredValue !== undefined && shouldKeepRejectedTelemetryValue(key, preferredValue, preferred)) {
             merged[key] = preferredValue;
-        } else if (alternateValue !== undefined) {
+        } else if (alternateValue !== undefined && shouldKeepRejectedTelemetryValue(key, alternateValue, alternate)) {
             merged[key] = alternateValue;
         }
     }

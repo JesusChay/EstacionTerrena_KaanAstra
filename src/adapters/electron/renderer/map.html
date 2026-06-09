@@ -28,7 +28,61 @@
     </div>
   </header>
 
-  <main>
+  <main class="map-layout">
+    <aside class="prediction-panel" aria-live="polite">
+      <div class="prediction-panel-header">
+        <div>
+          <p class="prediction-overline">Prediccion en vivo</p>
+          <h2>Zona estimada de caida</h2>
+        </div>
+        <span id="predictionPhaseBadge" class="prediction-phase-badge prediction-phase-waiting">Esperando</span>
+      </div>
+
+      <div class="prediction-metrics-grid">
+        <article class="prediction-metric-card">
+          <span class="prediction-metric-label">Estado</span>
+          <strong id="predictionStatusValue">Sin datos</strong>
+        </article>
+        <article class="prediction-metric-card">
+          <span class="prediction-metric-label">ETA</span>
+          <strong id="predictionEtaValue">--</strong>
+        </article>
+        <article class="prediction-metric-card">
+          <span class="prediction-metric-label">Confianza</span>
+          <strong id="predictionConfidenceValue">--</strong>
+        </article>
+        <article class="prediction-metric-card">
+          <span class="prediction-metric-label">Radio</span>
+          <strong id="predictionRadiusValue">--</strong>
+        </article>
+      </div>
+
+      <div class="prediction-detail-stack">
+        <div class="prediction-detail-row">
+          <span class="prediction-detail-label">Impacto estimado</span>
+          <span id="predictionLandingValue" class="prediction-detail-value">Sin coordenadas</span>
+        </div>
+        <div class="prediction-detail-row">
+          <span class="prediction-detail-label">Fuente de viento</span>
+          <span id="predictionWindSourceValue" class="prediction-detail-value">Sin perfil</span>
+        </div>
+      </div>
+
+      <div class="prediction-legend">
+        <div class="prediction-legend-item">
+          <span class="legend-swatch legend-swatch-real"></span>
+          <span>Trayectoria real</span>
+        </div>
+        <div class="prediction-legend-item">
+          <span class="legend-swatch legend-swatch-estimated"></span>
+          <span>Trayectoria estimada</span>
+        </div>
+        <div class="prediction-legend-item">
+          <span class="legend-swatch legend-swatch-impact"></span>
+          <span>Caida estimada</span>
+        </div>
+      </div>
+    </aside>
     <div id="map"></div>
   </main>
 

@@ -8,6 +8,7 @@ export function useTelemetryApp() {
   const [centerMapRequest, setCenterMapRequest] = useState(0);
   const [historySamples, setHistorySamples] = useState([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [latestLandingPrediction, setLatestLandingPrediction] = useState(null);
   const [latestTelemetry, setLatestTelemetry] = useState(null);
   const [modelState, setModelState] = useState(null);
   const controllerRef = useRef(null);
@@ -15,6 +16,7 @@ export function useTelemetryApp() {
   useEffect(() => {
     const controller = bootstrapTelemetryApp({
       onHistorySamplesChange: setHistorySamples,
+      onLatestLandingPredictionChange: setLatestLandingPrediction,
       onLatestTelemetryChange: setLatestTelemetry,
       onModelStateChange: setModelState,
       onViewStateChange: (patch) => {
@@ -59,6 +61,7 @@ export function useTelemetryApp() {
     downloadReport,
     historySamples,
     isDownloading,
+    latestLandingPrediction,
     latestTelemetry,
     modelState,
     setActiveTab,

@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  onLandingPrediction: (callback) => ipcRenderer.on('landing-prediction', (event, data) => callback(data)),
   onPayloadData: (callback) => ipcRenderer.on('payload-data', (event, data) => callback(data)),
   onReceiverLocation: (callback) => ipcRenderer.on('receiver-location', (event, data) => callback(data)),
   onError: (callback) => ipcRenderer.on('error', (event, message) => callback(message)),

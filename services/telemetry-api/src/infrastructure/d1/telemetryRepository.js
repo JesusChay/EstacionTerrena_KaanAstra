@@ -1,4 +1,5 @@
 import { mapTelemetryRow, selectFields } from './telemetryRowMapper.js';
+import { landingPredictionSelectFields, mapLandingPredictionRow } from './landingPredictionRowMapper.js';
 
 export function createTelemetryRepository({ db, now = () => new Date().toISOString() }) {
   return {
@@ -88,6 +89,80 @@ export function createTelemetryRepository({ db, now = () => new Date().toISOStri
 
       const rows = Array.isArray(result.results) ? result.results : [];
       return rows.map(mapTelemetryRow);
+    },
+
+    async insertLandingPrediction(prediction) {
+      const receivedAtUtc = now();
+      const sql = `
+        INSERT INTO landing_prediction_snapshots (
+          status,
+          phase,
+          confidence,
+          model_version,
+          wind_profile_source,
+          observed_at_utc,
+          eta_seconds,
+          uncertainty_radius_meters,
+          altitude_agl_meters,
+          current_descent_rate_mps,
+          time_to_deploy_seconds,
+          deploy_altitude_meters,
+          current_latitude,
+          current_longitude,
+          predicted_landing_latitude,
+          predicted_landing_longitude,
+          payload_json,
+          received_at_utc
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        prediction.status ?? null,
+        prediction.phase ?? null,
+        prediction.confidence ?? null,
+        prediction.modelVersion ?? null,
+        prediction.windProfileSource ?? null,
+        prediction.observedAtUtc ?? null,
+        prediction.etaSeconds ?? null,
+        prediction.uncertaintyRadiusMeters ?? null,
+        prediction.altitudeAglMeters ?? null,
+        prediction.currentDescentRateMps ?? null,
+        prediction.timeToDeploySeconds ?? null,
+        prediction.deployAltitudeMeters ?? null,
+        prediction.currentLocation?.latitude ?? null,
+        prediction.currentLocation?.longitude ?? null,
+        prediction.predictedLanding?.latitude ?? null,
+        prediction.predictedLanding?.longitude ?? null,
+        JSON.stringify(prediction),
+        receivedAtUtc
+      ];
+
+      const result = await db.prepare(sql).bind(...values).run();
+      const insertedId = result.meta.last_row_id;
+      const insertedPrediction = await db
+        .prepare(`SELECT ${landingPredictionSelectFields} FROM landing_prediction_snapshots WHERE id = ? LIMIT 1`)
+        .bind(insertedId)
+        .first();
+
+      return mapLandingPredictionRow(insertedPrediction);
+    },
+
+    async readLatestLandingPrediction() {
+      const row = await db
+        .prepare(`SELECT ${landingPredictionSelectFields} FROM landing_prediction_snapshots ORDER BY id DESC LIMIT 1`)
+        .first();
+
+      return mapLandingPredictionRow(row);
+    },
+
+    async readRecentLandingPredictions(limit) {
+      const result = await db
+        .prepare(`SELECT ${landingPredictionSelectFields} FROM landing_prediction_snapshots ORDER BY id DESC LIMIT ?`)
+        .bind(limit)
+        .all();
+
+      const rows = Array.isArray(result.results) ? result.results : [];
+      return rows.map(mapLandingPredictionRow).reverse();
     }
   };
 }

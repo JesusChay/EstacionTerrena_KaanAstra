@@ -5,24 +5,40 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const fs = require('fs');
 const XLSX = require('xlsx');
 const { createSimulationTelemetrySource } = require('./application/use-cases/createSimulationTelemetrySource');
+const { createLandingPredictionService } = require('./application/use-cases/createLandingPredictionService');
 const { createTelemetryProcessor } = require('./application/use-cases/createTelemetryProcessor');
 const { generateDesktopReport } = require('./application/use-cases/generateDesktopReport');
+const { toLandingPredictionDto } = require('./adapters/contracts/toLandingPredictionDto');
 const { toTelemetrySampleDto } = require('./adapters/contracts/toTelemetrySampleDto');
-const { sendToWindow, broadcastPayloadData } = require('./adapters/electron/windowMessaging');
+const { sendToWindow, broadcastLandingPrediction, broadcastPayloadData } = require('./adapters/electron/windowMessaging');
 const { resolveSerialTelemetryInput } = require('./adapters/serial/resolveSerialTelemetryInput');
 const { parseTelemetryMessage } = require('./adapters/serial/telemetryParser');
+const { createLandingPredictionApiPublisher } = require('./infrastructure/http/createLandingPredictionApiPublisher');
 const { createTelemetryApiPublisher } = require('./infrastructure/http/createTelemetryApiPublisher');
 const { createSystemReceiverLocationTracker } = require('./infrastructure/location/createSystemReceiverLocationTracker');
+const { createOpenMeteoClient } = require('./infrastructure/weather/createOpenMeteoClient');
+const { createOpenMeteoWindProfileProvider } = require('./infrastructure/weather/createOpenMeteoWindProfileProvider');
 const { createDesktopReportWriter } = require('./infrastructure/reporting/createDesktopReportWriter');
+const { createStaticWindProfileProvider } = require('./infrastructure/weather/createStaticWindProfileProvider');
 
 let dashboardWindow, mapWindow, model3dWindow;
 let serialPort, parser;
 let payloadDataLog = [];
+let latestLandingPrediction = null;
+let latestLandingPredictionDto = null;
 let simulationInterval = null;
 
 const TELEMETRY_API_URL = process.env.TELEMETRY_API_URL || 'https://kaan-astra-telemetry-api.adriancct13.workers.dev/api/telemetry';
 const TELEMETRY_API_ENABLED = process.env.TELEMETRY_API_ENABLED !== 'false';
 const TELEMETRY_PUBLISH_INTERVAL_MS = Number.parseInt(process.env.TELEMETRY_PUBLISH_INTERVAL_MS || '1000', 10);
+const LANDING_PREDICTION_API_ENABLED = process.env.LANDING_PREDICTION_API_ENABLED !== 'false';
+const LANDING_PREDICTION_API_URL = process.env.LANDING_PREDICTION_API_URL || TELEMETRY_API_URL.replace(/\/telemetry\/?$/, '/predictions');
+const LANDING_PREDICTION_PUBLISH_INTERVAL_MS = Number.parseInt(process.env.LANDING_PREDICTION_PUBLISH_INTERVAL_MS || '1000', 10);
+const OPEN_METEO_API_BASE_URL = process.env.OPEN_METEO_API_BASE_URL || 'https://api.open-meteo.com/v1/forecast';
+const OPEN_METEO_API_ENABLED = process.env.OPEN_METEO_API_ENABLED !== 'false';
+const OPEN_METEO_COORDINATE_THRESHOLD_METERS = Number.parseInt(process.env.OPEN_METEO_COORDINATE_THRESHOLD_METERS || '750', 10);
+const OPEN_METEO_MODELS = process.env.OPEN_METEO_MODELS;
+const OPEN_METEO_REFRESH_INTERVAL_MS = Number.parseInt(process.env.OPEN_METEO_REFRESH_INTERVAL_MS || '900000', 10);
 let serialDebugEnabled = true;
 
 const dotenv = loadDotenv();
@@ -159,6 +175,52 @@ const receiverLocationTracker = createSystemReceiverLocationTracker({
     warnLogger: (message) => console.warn(message)
 });
 
+const landingPredictionPublisher = createLandingPredictionApiPublisher({
+    url: LANDING_PREDICTION_API_URL,
+    enabled: LANDING_PREDICTION_API_ENABLED,
+    publishIntervalMs: LANDING_PREDICTION_PUBLISH_INTERVAL_MS,
+    fetchImpl: global.fetch,
+    infoLogger: (message) => console.log(message),
+    warnLogger: (message) => console.warn(message)
+});
+const staticWindProfileProvider = createStaticWindProfileProvider();
+const windProfileProvider = createWindProfileProvider();
+const landingPredictionService = createLandingPredictionService({
+    windProfileProvider
+});
+
+function createWindProfileProvider() {
+    if (!OPEN_METEO_API_ENABLED) {
+        console.warn('Open-Meteo deshabilitado; se usara perfil de viento estatico');
+        return staticWindProfileProvider;
+    }
+
+    if (typeof global.fetch !== 'function') {
+        console.warn('Open-Meteo no disponible; fetch no esta soportado en este entorno. Se usara perfil de viento estatico');
+        return staticWindProfileProvider;
+    }
+
+    try {
+        const openMeteoClient = createOpenMeteoClient({
+            apiBaseUrl: OPEN_METEO_API_BASE_URL,
+            fetchImpl: global.fetch,
+            models: OPEN_METEO_MODELS
+        });
+
+        return createOpenMeteoWindProfileProvider({
+            client: openMeteoClient,
+            coordinateChangeThresholdMeters: OPEN_METEO_COORDINATE_THRESHOLD_METERS,
+            fallbackProvider: staticWindProfileProvider,
+            infoLogger: (message) => console.log(message),
+            refreshIntervalMs: OPEN_METEO_REFRESH_INTERVAL_MS,
+            warnLogger: (message) => console.warn(message)
+        });
+    } catch (error) {
+        console.warn(`No se pudo inicializar Open-Meteo: ${error.message}`);
+        return staticWindProfileProvider;
+    }
+}
+
 function createWindows() {
     dashboardWindow = new BrowserWindow({
         width: 1200,
@@ -174,6 +236,7 @@ function createWindows() {
     dashboardWindow.loadFile(path.join(rendererDir, 'dashboard.html'));
     dashboardWindow.webContents.once('did-finish-load', () => {
         sendToWindow(dashboardWindow, LOCATION_STATUS_CHANNEL, latestReceiverLocationState);
+        sendLatestLandingPredictionToWindow(dashboardWindow);
     });
 
     dashboardWindow.on('close', () => {
@@ -194,6 +257,7 @@ function createWindows() {
     mapWindow.loadFile(path.join(rendererDir, 'map.html'));
     mapWindow.webContents.once('did-finish-load', () => {
         sendToWindow(mapWindow, LOCATION_STATUS_CHANNEL, latestReceiverLocationState);
+        sendLatestLandingPredictionToWindow(mapWindow);
     });
 
     model3dWindow = new BrowserWindow({
@@ -209,6 +273,7 @@ function createWindows() {
     model3dWindow.loadFile(path.join(rendererDir, 'model3d.html'));
     model3dWindow.webContents.once('did-finish-load', () => {
         sendToWindow(model3dWindow, LOCATION_STATUS_CHANNEL, latestReceiverLocationState);
+        sendLatestLandingPredictionToWindow(model3dWindow);
     });
 }
 
@@ -246,6 +311,11 @@ function initializeSerialPort(portName, baudRate = 115200) {
                 logSerialDebug,
                 logTelemetryDebug
             });
+            if (resolvedInput.type === 'flight-event') {
+                handleFlightEvent(resolvedInput);
+                return;
+            }
+
             if (resolvedInput.type !== 'telemetry') {
                 return;
             }
@@ -360,12 +430,35 @@ function processPayloadData(message) {
         return;
     }
 
+    latestLandingPrediction = landingPredictionService.update(processedTelemetry);
+    latestLandingPredictionDto = toLandingPredictionDto(latestLandingPrediction);
+
     const payloadData = toTelemetrySampleDto(processedTelemetry);
     logTelemetryDebug('EMITTED', payloadData);
 
     payloadDataLog.push({ ...payloadData, receivedAt: new Date().toISOString() });
     telemetryPublisher.publish(payloadData);
     broadcastPayloadData([dashboardWindow, mapWindow, model3dWindow], payloadData);
+    if (latestLandingPredictionDto) {
+        landingPredictionPublisher.publish(latestLandingPredictionDto);
+        broadcastLandingPrediction([dashboardWindow, mapWindow, model3dWindow], latestLandingPredictionDto);
+    }
+}
+
+function handleFlightEvent(resolvedInput) {
+    if (!resolvedInput || resolvedInput.event !== 'decoupling-activated') {
+        return;
+    }
+
+    const statusChanged = telemetryProcessor.setDecouplingStatus(true);
+    if (!statusChanged) {
+        return;
+    }
+
+    console.log('Evento de despliegue detectado: rele activado');
+    sendToWindow(dashboardWindow, 'simulation-status', {
+        message: 'Rele activado con exito'
+    });
 }
 
 function broadcastReceiverLocationState(receiverLocationState) {
@@ -373,6 +466,14 @@ function broadcastReceiverLocationState(receiverLocationState) {
     [dashboardWindow, mapWindow, model3dWindow].forEach((window) => {
         sendToWindow(window, LOCATION_STATUS_CHANNEL, latestReceiverLocationState);
     });
+}
+
+function sendLatestLandingPredictionToWindow(window) {
+    if (!latestLandingPredictionDto) {
+        return;
+    }
+
+    sendToWindow(window, 'landing-prediction', latestLandingPredictionDto);
 }
 
 function handleSystemReceiverLocation(receiverLocation) {

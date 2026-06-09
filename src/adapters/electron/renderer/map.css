@@ -1,6 +1,172 @@
 @import url('./common.css');
 
+.map-layout {
+  position: relative;
+}
+
 #map {
   height: calc(100vh - 80px);
   width: 100%;
+}
+
+.prediction-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 500;
+  width: 320px;
+  padding: 16px;
+  border: 1px solid rgba(75, 192, 192, 0.4);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(24, 24, 24, 0.96), rgba(35, 35, 35, 0.93));
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.prediction-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.prediction-overline {
+  margin-bottom: 4px;
+  color: #7fd7d7;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.prediction-panel h2 {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.prediction-phase-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.prediction-phase-waiting {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #d9d9d9;
+}
+
+.prediction-phase-predeploy {
+  background-color: rgba(255, 179, 0, 0.18);
+  color: #ffd162;
+}
+
+.prediction-phase-deployed {
+  background-color: rgba(75, 192, 192, 0.18);
+  color: #89ebeb;
+}
+
+.prediction-phase-landed {
+  background-color: rgba(90, 214, 120, 0.18);
+  color: #8ef7a9;
+}
+
+.prediction-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.prediction-metric-card {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.prediction-metric-label,
+.prediction-detail-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #a7c9cd;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.prediction-metric-card strong,
+.prediction-detail-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.prediction-detail-stack {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.prediction-detail-row {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prediction-detail-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.prediction-legend {
+  display: grid;
+  gap: 8px;
+  color: #d7ebef;
+  font-size: 12px;
+}
+
+.prediction-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-swatch {
+  display: inline-flex;
+  width: 18px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-swatch-real {
+  background-color: #ff4b4b;
+}
+
+.legend-swatch-estimated {
+  background-image: repeating-linear-gradient(90deg, #ffb300 0 6px, transparent 6px 10px);
+  border: 1px solid rgba(255, 179, 0, 0.5);
+}
+
+.legend-swatch-impact {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #4bc0c0;
+  box-shadow: 0 0 0 3px rgba(75, 192, 192, 0.18);
+}
+
+.predicted-landing-icon-wrapper {
+  background: transparent;
+  border: none;
+}
+
+.predicted-landing-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid #4bc0c0;
+  background-color: rgba(75, 192, 192, 0.25);
+  box-shadow: 0 0 0 4px rgba(75, 192, 192, 0.12);
 }

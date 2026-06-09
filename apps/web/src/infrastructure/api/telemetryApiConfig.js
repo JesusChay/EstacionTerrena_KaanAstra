@@ -3,11 +3,15 @@ const DEFAULT_API_PATHS = Object.freeze({
   health: '/health',
   schema: '/schema',
   latest: '/latest',
+  prediction: '/predictions',
+  predictionLatest: '/predictions/latest',
+  predictionRecent: '/predictions/recent',
   recent: '/recent',
   report: '/report',
   telemetry: '/telemetry'
 });
 const DEFAULT_LIMITS = Object.freeze({
+  predictionRecent: Object.freeze({ default: 24, max: 240 }),
   recent: Object.freeze({ default: 24, max: 120 }),
   report: Object.freeze({ default: 5000, max: 10000 })
 });
@@ -38,6 +42,10 @@ export function getRecentLimitConfig() {
 
 export function getReportLimitConfig() {
   return getLimitConfig('report');
+}
+
+export function getPredictionRecentLimitConfig() {
+  return getLimitConfig('predictionRecent');
 }
 
 export function buildApiUrl(apiBaseUrl, endpointPath, query = '') {

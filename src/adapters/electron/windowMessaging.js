@@ -10,7 +10,14 @@ function broadcastPayloadData(windows, payloadData) {
     });
 }
 
+function broadcastLandingPrediction(windows, landingPrediction) {
+    windows.forEach((window) => {
+        sendToWindow(window, 'landing-prediction', landingPrediction);
+    });
+}
+
 module.exports = {
     sendToWindow,
+    broadcastLandingPrediction,
     broadcastPayloadData
 };

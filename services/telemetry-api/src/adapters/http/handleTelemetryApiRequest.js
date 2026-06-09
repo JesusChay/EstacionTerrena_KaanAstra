@@ -1,12 +1,17 @@
 import { getHealthStatus } from '../../application/use-cases/getHealthStatus.js';
+import { getLatestLandingPrediction } from '../../application/use-cases/getLatestLandingPrediction.js';
 import { getLatestTelemetry } from '../../application/use-cases/getLatestTelemetry.js';
+import { getRecentLandingPredictions } from '../../application/use-cases/getRecentLandingPredictions.js';
 import { getRecentTelemetry } from '../../application/use-cases/getRecentTelemetry.js';
 import { getTelemetryReport } from '../../application/use-cases/getTelemetryReport.js';
+import { ingestLandingPrediction } from '../../application/use-cases/ingestLandingPrediction.js';
 import { ingestTelemetry } from '../../application/use-cases/ingestTelemetry.js';
 import { resolveQueryLimit } from '../../application/resolveQueryLimit.js';
+import { allowedLandingPredictionFields, requiredLandingPredictionFields } from '../../domain/landingPredictionSchema.js';
 import { allowedFields, requiredFields } from '../../domain/telemetrySchema.js';
 import { createTelemetryRepository } from '../../infrastructure/d1/telemetryRepository.js';
 import { buildCorsHeaders, json } from './json.js';
+import { normalizeIncomingLandingPrediction } from './normalizeIncomingLandingPrediction.js';
 import { normalizeIncomingTelemetry } from './normalizeIncomingTelemetry.js';
 import {
   TELEMETRY_API_ROUTES,
@@ -15,6 +20,7 @@ import {
   telemetrySchemaNotes,
   telemetryServiceName
 } from './telemetryApiHttpConfig.js';
+import { toLandingPredictionReadModelDto, toLandingPredictionReadModelDtos } from './toLandingPredictionReadModelDto.js';
 import { toTelemetryReadModelDto, toTelemetryReadModelDtos } from './toTelemetryReadModelDto.js';
 
 export async function handleTelemetryApiRequest(request, env) {
@@ -41,6 +47,8 @@ export async function handleTelemetryApiRequest(request, env) {
     if (request.method === 'GET' && url.pathname === TELEMETRY_API_ROUTES.schema) {
       return json({
         fields: allowedFields,
+        landingPredictionFields: allowedLandingPredictionFields,
+        landingPredictionRequired: requiredLandingPredictionFields,
         required: requiredFields,
         accepts: 'application/json',
         persistence: telemetryPersistenceName,
@@ -57,6 +65,11 @@ export async function handleTelemetryApiRequest(request, env) {
       return json({ ok: true, telemetry: toTelemetryReadModelDto(telemetry) });
     }
 
+    if (request.method === 'GET' && url.pathname === TELEMETRY_API_ROUTES.predictionLatest) {
+      const prediction = await getLatestLandingPrediction({ repository });
+      return json({ ok: true, prediction: toLandingPredictionReadModelDto(prediction) });
+    }
+
     if (request.method === 'GET' && url.pathname === TELEMETRY_API_ROUTES.recent) {
       const maxLimit = Number.parseInt(env.RECENT_LIMIT || String(TELEMETRY_LIMITS.recent.max), 10);
       const limit = resolveQueryLimit(url.searchParams.get('limit'), TELEMETRY_LIMITS.recent.default, maxLimit);
@@ -65,6 +78,18 @@ export async function handleTelemetryApiRequest(request, env) {
       return json({
         ok: true,
         telemetry: toTelemetryReadModelDtos(telemetry),
+        persistence: telemetryPersistenceName
+      });
+    }
+
+    if (request.method === 'GET' && url.pathname === TELEMETRY_API_ROUTES.predictionRecent) {
+      const maxLimit = Number.parseInt(env.PREDICTION_RECENT_LIMIT || String(TELEMETRY_LIMITS.predictionRecent.max), 10);
+      const limit = resolveQueryLimit(url.searchParams.get('limit'), TELEMETRY_LIMITS.predictionRecent.default, maxLimit);
+      const predictions = await getRecentLandingPredictions({ repository, limit });
+
+      return json({
+        ok: true,
+        predictions: toLandingPredictionReadModelDtos(predictions),
         persistence: telemetryPersistenceName
       });
     }
@@ -104,9 +129,31 @@ export async function handleTelemetryApiRequest(request, env) {
       }, 202);
     }
 
+    if (request.method === 'POST' && url.pathname === TELEMETRY_API_ROUTES.prediction) {
+      const contentType = request.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return json({ ok: false, message: 'Content-Type must be application/json.' }, 415);
+      }
+
+      const body = await request.json();
+      const incomingPrediction = body && typeof body === 'object' && body.prediction ? body.prediction : body;
+      const latestPrediction = await ingestLandingPrediction({
+        repository,
+        payload: normalizeIncomingLandingPrediction(incomingPrediction)
+      });
+
+      return json({
+        ok: true,
+        message: 'Landing prediction accepted.',
+        prediction: toLandingPredictionReadModelDto(latestPrediction)
+      }, 202);
+    }
+
     return json({ ok: false, message: 'Route not found.' }, 404);
   } catch (error) {
-    const status = error.message === 'No telemetry available yet.' ? 404 : 400;
+    const status = error.message === 'No telemetry available yet.' || error.message === 'No landing prediction available yet.'
+      ? 404
+      : 400;
     return json({ ok: false, message: error.message || 'Unexpected error.' }, status);
   }
 }

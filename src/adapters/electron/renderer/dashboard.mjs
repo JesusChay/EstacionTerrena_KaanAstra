@@ -1,6 +1,7 @@
 import Chart from 'chart.js/auto';
 
 let lastPayloadDataTime = null;
+let lastDecouplingStatus = false;
 
 function createLineChart(ctx, label, yAxisLabel, color) {
   return new Chart(ctx, {
@@ -268,6 +269,7 @@ const distanceChart = createLineChart(
 
 window.api.onPayloadData((data) => {
   lastPayloadDataTime = Date.now();
+  const isDecouplingActive = data.decouplingStatus === true;
 
   pushChartPoint(temperatureChart, data.time, [data.temperature !== undefined ? Number.parseFloat(data.temperature) : null]);
   pushChartPoint(pressureChart, data.time, [data.pressure !== undefined ? Number.parseFloat(data.pressure) : null]);
@@ -294,9 +296,11 @@ window.api.onPayloadData((data) => {
   if (data.velocity !== undefined) document.getElementById('velocityValue').textContent = `${data.velocity} m/s`;
   if (data.distanceToReceiver !== undefined) document.getElementById('distanceValue').textContent = `${data.distanceToReceiver} m`;
 
-  if (data.decouplingStatus) {
+  if (isDecouplingActive && !lastDecouplingStatus) {
     showNotification('Rele activado con exito');
   }
+
+  lastDecouplingStatus = isDecouplingActive;
 });
 
 window.api.onError((message) => {

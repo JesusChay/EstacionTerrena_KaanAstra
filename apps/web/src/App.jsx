@@ -11,6 +11,7 @@ export default function App({
   downloadReport: onDownloadReport,
   historySamples,
   isDownloading,
+  latestLandingPrediction,
   latestTelemetry,
   modelState,
   setActiveTab: onTabChange,
@@ -69,6 +70,7 @@ export default function App({
             active={activeTab === 'map'}
             centerRequestKey={centerMapRequest}
             historySamples={historySamples}
+            latestLandingPrediction={latestLandingPrediction}
             latestTelemetry={latestTelemetry}
             onCenterMap={onCenterMap}
             viewState={viewState}
