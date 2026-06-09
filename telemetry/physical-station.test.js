@@ -6,6 +6,8 @@ const { buildDesktopReportArtifacts } = require('../src/application/use-cases/bu
 const { createSimulationTelemetrySource } = require('../src/application/use-cases/createSimulationTelemetrySource');
 const { createTelemetryProcessor } = require('../src/application/use-cases/createTelemetryProcessor');
 const { toTelemetrySampleDto } = require('../src/adapters/contracts/toTelemetrySampleDto');
+const { mergeTelemetrySources } = require('../src/domain/telemetry/telemetryMerge');
+const { calculateDistance } = require('../src/domain/telemetry/telemetryMath');
 
 const LORA_LINE = 'LORA: 24.50,1007.20,128.40,0.11,-0.02,1.01,3.40,5.60,7.80,141.10,-8.40,29.90,20.967370,-89.623710';
 
@@ -57,6 +59,19 @@ test('createTelemetryProcessor applies receiver location updates to future paylo
   assert.equal(Number.isFinite(processedTelemetry.distanceToReceiver), true);
 });
 
+test('createTelemetryProcessor keeps decoupling state after relay activation event', () => {
+  const processor = createTelemetryProcessor({
+    parseTelemetryMessage,
+    now: () => new Date('2026-06-05T12:00:00.000Z')
+  });
+
+  assert.equal(processor.setDecouplingStatus(true), true);
+  assert.equal(processor.setDecouplingStatus(true), false);
+
+  const processedTelemetry = processor.process(LORA_LINE);
+  assert.equal(processedTelemetry.decouplingStatus, true);
+});
+
 test('createTelemetryProcessor rejects incomplete acceleration payloads', () => {
   const processor = createTelemetryProcessor({
     parseTelemetryMessage,
@@ -79,6 +94,49 @@ test('createSimulationTelemetrySource emits simulation payloads compatible with 
   assert.ok(parsedTelemetry);
   assert.equal(typeof parsedTelemetry.temperature, 'number');
   assert.equal(typeof parsedTelemetry.decouplingStatus, 'boolean');
+});
+
+test('calculateDistance accepts coordinates with zero latitude or longitude', () => {
+  assert.ok(calculateDistance(0, -89.62371, 1, -89.62371) > 0);
+  assert.ok(calculateDistance(20.96737, 0, 20.96737, 1) > 0);
+});
+
+test('mergeTelemetrySources keeps zero-valued flight metrics and ignores placeholder 0,0 coordinates', () => {
+  const merged = mergeTelemetrySources({
+    preferredSource: 'lora',
+    payloadSources: {
+      lora: {
+        altitude: 0,
+        velocity: 0,
+        velocityZ: 0,
+        latitude: 0,
+        longitude: 0
+      },
+      xbee: {}
+    }
+  });
+
+  assert.equal(merged.altitude, 0);
+  assert.equal(merged.velocity, 0);
+  assert.equal(merged.velocityZ, 0);
+  assert.equal(Object.hasOwn(merged, 'latitude'), false);
+  assert.equal(Object.hasOwn(merged, 'longitude'), false);
+});
+
+test('mergeTelemetrySources accepts a zero longitude when paired coordinates remain valid', () => {
+  const merged = mergeTelemetrySources({
+    preferredSource: 'lora',
+    payloadSources: {
+      lora: {
+        latitude: 20.96737,
+        longitude: 0
+      },
+      xbee: {}
+    }
+  });
+
+  assert.equal(merged.latitude, 20.96737);
+  assert.equal(merged.longitude, 0);
 });
 
 test('buildDesktopReportArtifacts keeps report semantics in application', () => {

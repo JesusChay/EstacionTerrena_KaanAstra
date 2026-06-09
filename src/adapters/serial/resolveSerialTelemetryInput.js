@@ -13,6 +13,11 @@ function resolveSerialTelemetryInput(line, { logSerialDebug = () => {}, logTelem
         logSerialDebug('CLEAN', cleaned);
     }
 
+    if (isDecouplingActivatedLine(cleaned)) {
+        logTelemetryDebug('EVENT', { event: 'decoupling-activated' });
+        return { type: 'flight-event', event: 'decoupling-activated' };
+    }
+
     const parsed = parseTelemetryMessage(cleaned);
     if (parsed) {
         logTelemetryDebug('PARSED', parsed);
@@ -38,6 +43,16 @@ function stripEspLogPrefix(line) {
         .trim();
 }
 
+function isDecouplingActivatedLine(line) {
+    if (!line || typeof line !== 'string') {
+        return false;
+    }
+
+    const normalized = line.trim().toLowerCase();
+    return (/\brele(?:e|y)?\b/.test(normalized) && /\bactivad(?:o|a)?\b/.test(normalized))
+        || (/\brelay\b/.test(normalized) && /\bactivat(?:ed|e)\b/.test(normalized));
+}
+
 function normalizeTelemetryEnvelope(line) {
     if (line.startsWith('[PAYLOAD]')) {
         return line.replace('[PAYLOAD]', '').trim();
@@ -53,6 +68,7 @@ function normalizeTelemetryEnvelope(line) {
 }
 
 module.exports = {
+    isDecouplingActivatedLine,
     resolveSerialTelemetryInput,
     stripEspLogPrefix
 };

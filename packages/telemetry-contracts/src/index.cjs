@@ -35,14 +35,47 @@ const TELEMETRY_READ_MODEL_FIELDS = Object.freeze([
   'receivedAtUtc'
 ]);
 
+const LANDING_PREDICTION_SAMPLE_FIELDS = Object.freeze([
+  'status',
+  'phase',
+  'confidence',
+  'modelVersion',
+  'windProfileSource',
+  'observedAtUtc',
+  'etaSeconds',
+  'uncertaintyRadiusMeters',
+  'altitudeAglMeters',
+  'currentDescentRateMps',
+  'timeToDeploySeconds',
+  'deployAltitudeMeters',
+  'currentLocation',
+  'deployPoint',
+  'predictedLanding',
+  'estimatedTrajectory',
+  'horizontalVelocityVector',
+  'blendedDriftVector',
+  'windVector',
+  'inputs'
+]);
+
+const LANDING_PREDICTION_READ_MODEL_FIELDS = Object.freeze([
+  'id',
+  ...LANDING_PREDICTION_SAMPLE_FIELDS,
+  'receivedAtUtc'
+]);
+
 const TELEMETRY_BOOLEAN_FIELDS = Object.freeze(['decouplingStatus']);
 const TELEMETRY_SAMPLE_REQUIRED_FIELDS = Object.freeze([]);
+const LANDING_PREDICTION_REQUIRED_FIELDS = Object.freeze([]);
 
 const TELEMETRY_API_BASE_PATH = '/api';
 const TELEMETRY_API_PATHS = Object.freeze({
   health: '/health',
   schema: '/schema',
   latest: '/latest',
+  prediction: '/predictions',
+  predictionLatest: '/predictions/latest',
+  predictionRecent: '/predictions/recent',
   recent: '/recent',
   report: '/report',
   telemetry: '/telemetry'
@@ -55,6 +88,7 @@ const TELEMETRY_API_ROUTES = Object.freeze(
 );
 
 const TELEMETRY_LIMITS = Object.freeze({
+  predictionRecent: Object.freeze({ default: 24, max: 240 }),
   recent: Object.freeze({ default: 24, max: 120 }),
   report: Object.freeze({ default: 5000, max: 10000 })
 });
@@ -81,8 +115,19 @@ function createTelemetryReadModelDto(source) {
   return pickTelemetryFields(source, TELEMETRY_READ_MODEL_FIELDS);
 }
 
+function createLandingPredictionSampleDto(source) {
+  return pickTelemetryFields(source, LANDING_PREDICTION_SAMPLE_FIELDS);
+}
+
+function createLandingPredictionReadModelDto(source) {
+  return pickTelemetryFields(source, LANDING_PREDICTION_READ_MODEL_FIELDS);
+}
+
 function getBrowserContractSnapshot() {
   return {
+    landingPredictionReadModelFields: [...LANDING_PREDICTION_READ_MODEL_FIELDS],
+    landingPredictionRequiredFields: [...LANDING_PREDICTION_REQUIRED_FIELDS],
+    landingPredictionSampleFields: [...LANDING_PREDICTION_SAMPLE_FIELDS],
     telemetrySampleFields: [...TELEMETRY_SAMPLE_FIELDS],
     telemetryReadModelFields: [...TELEMETRY_READ_MODEL_FIELDS],
     telemetryBooleanFields: [...TELEMETRY_BOOLEAN_FIELDS],
@@ -98,6 +143,9 @@ function getBrowserContractSnapshot() {
 }
 
 module.exports = Object.freeze({
+  LANDING_PREDICTION_READ_MODEL_FIELDS,
+  LANDING_PREDICTION_REQUIRED_FIELDS,
+  LANDING_PREDICTION_SAMPLE_FIELDS,
   TELEMETRY_SAMPLE_FIELDS,
   TELEMETRY_READ_MODEL_FIELDS,
   TELEMETRY_BOOLEAN_FIELDS,
@@ -106,6 +154,8 @@ module.exports = Object.freeze({
   TELEMETRY_API_PATHS,
   TELEMETRY_API_ROUTES,
   TELEMETRY_LIMITS,
+  createLandingPredictionReadModelDto,
+  createLandingPredictionSampleDto,
   pickTelemetryFields,
   createTelemetrySampleDto,
   createTelemetryReadModelDto,

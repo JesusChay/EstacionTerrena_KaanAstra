@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fixtures = require('../tests/fixtures/serial-lines.json');
+const { resolveSerialTelemetryInput } = require('../src/adapters/serial/resolveSerialTelemetryInput');
 const { parseTelemetryMessage, isTelemetryLine } = require('../src/adapters/serial/telemetryParser');
 
 test('parseTelemetryMessage parses prefixed terrena lines and keeps the source channel', () => {
@@ -65,4 +66,11 @@ test('isTelemetryLine recognizes supported prefixes and csv payloads', () => {
   assert.equal(isTelemetryLine(fixtures.raw), true);
   assert.equal(isTelemetryLine(fixtures.simulation), true);
   assert.equal(isTelemetryLine(fixtures.invalid), false);
+});
+
+test('resolveSerialTelemetryInput recognizes relay activation as a flight event', () => {
+  assert.deepStrictEqual(resolveSerialTelemetryInput(fixtures.deploymentEvent), {
+    type: 'flight-event',
+    event: 'decoupling-activated'
+  });
 });

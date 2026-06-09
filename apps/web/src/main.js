@@ -1,4 +1,5 @@
 import telemetryContracts from './generated/telemetry-contract.js';
+import { loadLatestLandingPrediction } from './application/loadLatestLandingPrediction.js';
 import { loadLatestTelemetry } from './application/loadLatestTelemetry.js';
 import { loadRecentTelemetry } from './application/loadRecentTelemetry.js';
 import { prepareReportDownload } from './application/prepareReportDownload.js';
@@ -12,6 +13,10 @@ import {
   normalizeTelemetryRecord,
   normalizeTelemetryRecords
 } from './adapters/contracts/telemetryReadModel.js';
+import {
+  configureLandingPredictionReadModel,
+  normalizeLandingPredictionRecord
+} from './adapters/contracts/landingPredictionReadModel.js';
 import { createCsvReportArtifact } from './adapters/export/createCsvReportArtifact.js';
 import { buildDemoTelemetry } from './adapters/ui/demoTelemetry.js';
 import { createStatusPresenter } from './adapters/ui/createStatusPresenter.js';
@@ -23,6 +28,7 @@ import { createTelemetryApiClient } from './infrastructure/api/telemetryApiClien
 configureTelemetryApiConfig({
   contracts: telemetryContracts
 });
+configureLandingPredictionReadModel({ contracts: telemetryContracts });
 configureTelemetryReadModel({ contracts: telemetryContracts });
 
 const HISTORY_LIMIT = Math.min(30, getRecentLimitConfig().max);
@@ -32,6 +38,7 @@ let bootstrapController = null;
 
 export function bootstrapTelemetryApp({
   onHistorySamplesChange = () => {},
+  onLatestLandingPredictionChange = () => {},
   onLatestTelemetryChange = () => {},
   onModelStateChange = () => {},
   onViewStateChange = () => {}
@@ -80,14 +87,28 @@ export function bootstrapTelemetryApp({
       startDemoMode('API no disponible', samples);
     }
 
+    try {
+      const prediction = await loadLatestLandingPrediction({
+        apiClient,
+        normalizeLandingPredictionRecord
+      });
+      onLatestLandingPredictionChange(prediction);
+    } catch {
+      onLatestLandingPredictionChange(null);
+    }
+
     refreshIntervalId = globalThis.window?.setInterval(refreshLatestTelemetry, REFRESH_INTERVAL_MS) || null;
   }
 
   async function refreshLatestTelemetry() {
     try {
-      const telemetry = await loadLatestTelemetry({ apiClient, normalizeTelemetryRecord });
+      const [telemetry, prediction] = await Promise.all([
+        loadLatestTelemetry({ apiClient, normalizeTelemetryRecord }),
+        loadLatestLandingPrediction({ apiClient, normalizeLandingPredictionRecord }).catch(() => null)
+      ]);
       statusPresenter.setWorkerStatus('Worker conectado', 'status-ok');
       renderTelemetrySnapshot(telemetry, 'API activa');
+      onLatestLandingPredictionChange(prediction);
     } catch {
       statusPresenter.setWorkerStatus('Worker sin enlace', 'status-error');
       statusPresenter.setStationStatus('Sin datos de estacion', 'status-waiting');
@@ -97,6 +118,7 @@ export function bootstrapTelemetryApp({
   function startDemoMode(reason, samples) {
     statusPresenter.setWorkerStatus(reason, 'status-waiting');
     statusPresenter.setDataMode('Demo local');
+    onLatestLandingPredictionChange(null);
     onHistorySamplesChange(samples);
     renderTelemetrySnapshot(samples[samples.length - 1], 'Demo local', {
       label: 'Modo demo local',

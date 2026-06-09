@@ -1,10 +1,12 @@
 import 'leaflet/dist/leaflet.css';
 import Leaflet from 'leaflet';
+import { createLandingPredictionOverlay } from './createLandingPredictionOverlay.js';
 
 const PAYLOAD_MARKER_ICON_URL = new URL('../../assets/Marcador_Primaria.png', import.meta.url).href;
 
 export function createMapPresenter({ containerElement }) {
   let map;
+  let landingPredictionOverlay;
   let payloadMarker;
   let payloadPath;
   let payloadPathCoordinates = [];
@@ -24,6 +26,7 @@ export function createMapPresenter({ containerElement }) {
       weight: 4,
       opacity: 0.9
     }).addTo(map);
+    landingPredictionOverlay = createLandingPredictionOverlay({ map });
   }
 
   function sync(samples) {
@@ -78,6 +81,19 @@ export function createMapPresenter({ containerElement }) {
     }
   }
 
+  function updateLandingPrediction(prediction) {
+    if (!map || !landingPredictionOverlay) {
+      return;
+    }
+
+    if (!prediction || !prediction.predictedLanding || !Array.isArray(prediction.estimatedTrajectory) || prediction.estimatedTrajectory.length === 0) {
+      landingPredictionOverlay.clear();
+      return;
+    }
+
+    landingPredictionOverlay.render(prediction);
+  }
+
   function centerOnPayload() {
     if (map && latestMapCoords) {
       map.setView(latestMapCoords, 16);
@@ -98,6 +114,7 @@ export function createMapPresenter({ containerElement }) {
 
     payloadMarker = null;
     payloadPath = null;
+    landingPredictionOverlay = null;
     payloadPathCoordinates = [];
     firstValidPayloadCoord = false;
     latestMapCoords = null;
@@ -107,6 +124,7 @@ export function createMapPresenter({ containerElement }) {
     dispose,
     initialize,
     sync,
+    updateLandingPrediction,
     updateTelemetry,
     centerOnPayload,
     invalidateSize

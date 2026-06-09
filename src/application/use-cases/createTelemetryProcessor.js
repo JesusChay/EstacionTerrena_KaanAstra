@@ -196,6 +196,13 @@ function createTelemetryProcessor({
         return false;
     }
 
+    function setDecouplingStatus(isActive) {
+        const normalizedStatus = isActive === true;
+        const previousStatus = payloadSensors.decouplingStatus === true;
+        payloadSensors.decouplingStatus = normalizedStatus;
+        return previousStatus !== normalizedStatus;
+    }
+
     function getReceiverLocation() {
         const { receiverLatitude, receiverLongitude } = payloadSensors;
         if (!Number.isFinite(receiverLatitude) || !Number.isFinite(receiverLongitude)) {
@@ -306,6 +313,7 @@ function createTelemetryProcessor({
     return {
         getReceiverLocation,
         process,
+        setDecouplingStatus,
         setReceiverLocation,
         getPayloadSensors: () => ({ ...payloadSensors })
     };

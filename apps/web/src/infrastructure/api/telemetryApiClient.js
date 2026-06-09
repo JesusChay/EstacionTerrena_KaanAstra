@@ -22,6 +22,12 @@ export function createTelemetryApiClient({
     getLatest() {
       return requestJson(apiPaths.latest);
     },
+    getLatestPrediction() {
+      return requestJson(apiPaths.predictionLatest);
+    },
+    getRecentPredictions(limit) {
+      return requestJson(apiPaths.predictionRecent, `?limit=${limit}`);
+    },
     getRecent(limit) {
       return requestJson(apiPaths.recent, `?limit=${limit}`);
     },

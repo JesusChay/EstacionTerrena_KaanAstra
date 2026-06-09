@@ -1,0 +1,62 @@
+{
+  "status": "tracking",
+  "phase": "deployed",
+  "confidence": "medium",
+  "modelVersion": "landing-predictor-v1",
+  "windProfileSource": "open-meteo",
+  "observedAtUtc": "2026-06-08T12:05:06.000Z",
+  "etaSeconds": 18.9,
+  "uncertaintyRadiusMeters": 42.7,
+  "altitudeAglMeters": 140.12,
+  "currentDescentRateMps": 7.12,
+  "timeToDeploySeconds": null,
+  "deployAltitudeMeters": null,
+  "currentLocation": {
+    "latitude": 20.123457,
+    "longitude": -89.987654
+  },
+  "deployPoint": null,
+  "predictedLanding": {
+    "latitude": 20.124568,
+    "longitude": -89.976543
+  },
+  "estimatedTrajectory": [
+    {
+      "latitude": 20.123457,
+      "longitude": -89.987654,
+      "altitudeMeters": 140.12,
+      "etaSeconds": 18.9
+    },
+    {
+      "latitude": 20.124568,
+      "longitude": -89.976543,
+      "altitudeMeters": 0,
+      "etaSeconds": 0
+    }
+  ],
+  "horizontalVelocityVector": {
+    "northMps": 1.234,
+    "eastMps": -2.345,
+    "speedMps": 2.649,
+    "directionDeg": 251.2
+  },
+  "blendedDriftVector": {
+    "northMps": 0.923,
+    "eastMps": -1.875,
+    "speedMps": 2.09,
+    "directionDeg": 245.6
+  },
+  "windVector": {
+    "northMps": 0.5,
+    "eastMps": -1.25,
+    "speedMps": 1.346,
+    "directionDeg": 248.5
+  },
+  "inputs": {
+    "altitudeAglMeters": 140.12,
+    "decouplingStatus": true,
+    "massKg": 0.35,
+    "parachuteAreaSquareMeters": 0.2642,
+    "verticalVelocityMps": -7.12
+  }
+}
