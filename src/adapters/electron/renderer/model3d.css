@@ -17,9 +17,39 @@
   flex-direction: column;
   align-items: center;
 }
-.model3d-panel h2 {
+.model3d-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   margin-bottom: 10px;
+}
+.model3d-header h2 {
+  margin: 0;
   text-align: center;
+}
+.model3d-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chip-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid rgba(75, 192, 192, 0.3);
+  background: rgba(75, 192, 192, 0.08);
+  color: #d7ebef;
+}
+.chip-cohete {
+  border-color: rgba(75, 192, 192, 0.3);
+  background: rgba(75, 192, 192, 0.08);
+  color: #89ebeb;
+}
+.chip-cansat {
+  border-color: rgba(255, 179, 0, 0.35);
+  background: rgba(255, 179, 0, 0.12);
+  color: #ffd162;
 }
 .model3d-canvas {
   width: 100%;
@@ -34,6 +64,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: 10px;
 }
 .gyro-data p {
   margin: 2px 0;

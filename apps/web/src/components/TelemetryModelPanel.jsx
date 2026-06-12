@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 
-export function TelemetryModelPanel({ active, modelState, viewState }) {
+export function TelemetryModelPanel({ active, latestTelemetry, modelState, viewState }) {
   const presenterRef = useRef(null);
   const containerRef = useRef(null);
   const modelStateRef = useRef(modelState);
   const loadPromiseRef = useRef(null);
+  const decouplingRef = useRef(null);
 
   useEffect(() => {
     modelStateRef.current = modelState;
@@ -32,6 +33,8 @@ export function TelemetryModelPanel({ active, modelState, viewState }) {
         const presenter = createModelPresenter({ containerElement: containerRef.current });
         presenter.initialize();
         presenter.animate();
+        decouplingRef.current = latestTelemetry?.decouplingStatus === true;
+        presenter.setDeploymentStatus(decouplingRef.current);
         if (modelStateRef.current) {
           presenter.updateTelemetry(modelStateRef.current);
         }
@@ -62,11 +65,24 @@ export function TelemetryModelPanel({ active, modelState, viewState }) {
     }
   }, [active]);
 
+  useEffect(() => {
+    const deployed = latestTelemetry?.decouplingStatus === true;
+    if (deployed !== decouplingRef.current) {
+      decouplingRef.current = deployed;
+      presenterRef.current?.setDeploymentStatus(deployed);
+    }
+  }, [latestTelemetry]);
+
   return (
     <article className="panel immersive-panel model-panel">
       <div className="panel-header-row">
         <h2>Modelo 3D</h2>
-        <span className="panel-chip">Orientacion estimada</span>
+        <div className="panel-tools">
+          <span className="panel-chip">Orientacion estimada</span>
+          <span className={`panel-chip ${latestTelemetry?.decouplingStatus === true ? 'chip-cansat' : 'chip-cohete'}`}>
+            {latestTelemetry?.decouplingStatus === true ? 'CanSat' : 'Cohete'}
+          </span>
+        </div>
       </div>
       <div ref={containerRef} className="model-surface"></div>
       <div className="gyro-strip">

@@ -16,16 +16,20 @@ import {
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 
 export function createModelPresenter({ containerElement }) {
-  const MODEL_ASSET_PATH = new URL('../../assets/cohete.stl', import.meta.url).href;
+  const ROCKET_ASSET_PATH = new URL('../../assets/cohete.stl', import.meta.url).href;
+  const CANSAT_ASSET_PATH = new URL('../../assets/cansat.stl', import.meta.url).href;
   const TARGET_MODEL_SIZE = 3.2;
   let scene;
   let camera;
   let renderer;
-  let modelObject;
+  let rocketObject;
+  let cansatObject;
+  let activeModel;
   let fallbackModel;
   let modelContainer;
   let modelInitialized = false;
   let animationFrameId = null;
+  let isDeployed = false;
 
   function initialize() {
     if (modelInitialized || !containerElement) return;
@@ -44,7 +48,8 @@ export function createModelPresenter({ containerElement }) {
 
     fallbackModel = buildFallbackModel();
     scene.add(fallbackModel);
-    loadRealModel();
+    activeModel = fallbackModel;
+    loadModels();
 
     const ambient = new AmbientLight(0xffffff, 0.75);
     scene.add(ambient);
@@ -80,17 +85,26 @@ export function createModelPresenter({ containerElement }) {
     renderer.setSize(modelContainer.clientWidth, modelContainer.clientHeight);
   }
 
+  function setDeploymentStatus(deployed) {
+    isDeployed = deployed === true;
+    if (rocketObject && cansatObject) {
+      rocketObject.visible = !isDeployed;
+      cansatObject.visible = isDeployed;
+      activeModel = isDeployed ? cansatObject : rocketObject;
+    }
+  }
+
   function updateTelemetry(modelState) {
     if (!modelInitialized || !modelState) return;
 
-    const activeModel = modelObject || fallbackModel;
-    if (!activeModel) return;
+    const target = activeModel || fallbackModel;
+    if (!target) return;
 
     const gx = Number.isFinite(modelState.gyroxRad) ? modelState.gyroxRad : 0;
     const gy = Number.isFinite(modelState.gyroyRad) ? modelState.gyroyRad : 0;
     const gz = Number.isFinite(modelState.gyrozRad) ? modelState.gyrozRad : 0;
 
-    applyTelemetryRotation(activeModel, gx, gy, gz);
+    applyTelemetryRotation(target, gx, gy, gz);
   }
 
   function dispose() {
@@ -112,30 +126,52 @@ export function createModelPresenter({ containerElement }) {
     renderer = null;
     scene = null;
     camera = null;
-    modelObject = null;
+    rocketObject = null;
+    cansatObject = null;
+    activeModel = null;
     fallbackModel = null;
     modelContainer = null;
     modelInitialized = false;
   }
 
-  function loadRealModel() {
+  function loadModels() {
     const loader = new STLLoader();
+
     loader.load(
-      MODEL_ASSET_PATH,
+      ROCKET_ASSET_PATH,
       (geometry) => {
-        modelObject = buildLoadedModel(geometry, {
+        rocketObject = buildLoadedModel(geometry, {
           targetSize: TARGET_MODEL_SIZE,
           positionY: -0.4
         });
-        scene.remove(fallbackModel);
-        scene.add(modelObject);
+        rocketObject.visible = !isDeployed;
+        scene.add(rocketObject);
+        onModelLoaded();
       },
       undefined,
-      (error) => {
-        console.error('[Model3D] Error al cargar STL:', error);
-        modelObject = fallbackModel;
-      }
+      () => {}
     );
+
+    loader.load(
+      CANSAT_ASSET_PATH,
+      (geometry) => {
+        cansatObject = buildLoadedModel(geometry, {
+          targetSize: TARGET_MODEL_SIZE,
+          positionY: 0
+        });
+        cansatObject.visible = isDeployed;
+        scene.add(cansatObject);
+        onModelLoaded();
+      },
+      undefined,
+      () => {}
+    );
+  }
+
+  function onModelLoaded() {
+    if (!rocketObject || !cansatObject) return;
+    scene.remove(fallbackModel);
+    activeModel = isDeployed ? cansatObject : rocketObject;
   }
 
   return {
@@ -143,7 +179,8 @@ export function createModelPresenter({ containerElement }) {
     animate,
     dispose,
     handleResize,
-    updateTelemetry
+    updateTelemetry,
+    setDeploymentStatus
   };
 }
 

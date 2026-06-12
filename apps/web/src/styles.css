@@ -312,6 +312,18 @@ body {
   font-size: var(--ui-font-sm);
 }
 
+.chip-cohete {
+  border-color: rgba(75, 192, 192, 0.3);
+  background: rgba(75, 192, 192, 0.08);
+  color: #89ebeb;
+}
+
+.chip-cansat {
+  border-color: rgba(255, 179, 0, 0.35);
+  background: rgba(255, 179, 0, 0.12);
+  color: #ffd162;
+}
+
 .panel-action {
   border: 1px solid rgba(75, 192, 192, 0.35);
   background: rgba(75, 192, 192, 0.1);
@@ -629,4 +641,105 @@ body {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+.drift-table-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.drift-table {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-collapse: collapse;
+  font-size: var(--ui-font-sm);
+  border-radius: 8px;
+  border: 1px solid rgba(75, 192, 192, 0.14);
+  overflow: hidden;
+}
+
+.drift-table thead {
+  display: block;
+  flex-shrink: 0;
+  background: rgba(75, 192, 192, 0.08);
+}
+
+.drift-table tbody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.drift-table tr {
+  display: flex;
+  align-items: center;
+}
+
+.drift-table tbody tr {
+  flex: 1;
+}
+
+.drift-table th,
+.drift-table td {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.drift-table th {
+  height: 32px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(75, 192, 192, 0.14);
+}
+
+.drift-table th:not(:first-child),
+.drift-table td:not(:first-child) {
+  justify-content: flex-end;
+}
+
+.drift-table th:first-child,
+.drift-table td:first-child {
+  flex: 1.8;
+}
+
+.drift-table th:not(:first-child),
+.drift-table td:not(:first-child) {
+  flex: 1;
+}
+
+.drift-table td {
+  font-family: 'Courier New', monospace;
+  color: var(--text);
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.drift-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.drift-table tbody tr:hover {
+  background: rgba(75, 192, 192, 0.04);
+}
+
+.drift-table td:first-child {
+  font-family: inherit;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.drift-source {
+  flex-shrink: 0;
+  font-size: var(--ui-font-sm);
+  color: var(--muted);
+  text-align: left;
+  padding: 4px 2px 0;
 }
