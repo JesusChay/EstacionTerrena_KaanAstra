@@ -61,6 +61,7 @@ export default function App({
           <TelemetryCharts
             historySamples={historySamples}
             latestTelemetry={latestTelemetry}
+            latestLandingPrediction={latestLandingPrediction}
             viewState={viewState}
           />
         </section>
@@ -80,6 +81,7 @@ export default function App({
         <section className={`tab-panel ${activeTab === 'model' ? 'is-active' : ''}`}>
           <TelemetryModelPanel
             active={activeTab === 'model'}
+            latestTelemetry={latestTelemetry}
             modelState={modelState}
             viewState={viewState}
           />

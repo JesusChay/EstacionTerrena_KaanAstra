@@ -132,3 +132,108 @@
 .receiver-location-actions button:hover {
   background-color: #256868;
 }
+
+.info-panel {
+  overflow: hidden;
+}
+
+.drift-table-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.drift-table {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-collapse: collapse;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid rgba(75, 192, 192, 0.25);
+  overflow: hidden;
+}
+
+.drift-table thead {
+  display: block;
+  flex-shrink: 0;
+  background: rgba(75, 192, 192, 0.1);
+}
+
+.drift-table tbody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.drift-table tr {
+  display: flex;
+  align-items: center;
+}
+
+.drift-table tbody tr {
+  flex: 1;
+}
+
+.drift-table th,
+.drift-table td {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.drift-table th {
+  height: 30px;
+  color: #ffffff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9px;
+  border-bottom: 1px solid rgba(75, 192, 192, 0.2);
+}
+
+.drift-table th:not(:first-child),
+.drift-table td:not(:first-child) {
+  justify-content: flex-end;
+}
+
+.drift-table th:first-child,
+.drift-table td:first-child {
+  flex: 1.8;
+}
+
+.drift-table th:not(:first-child),
+.drift-table td:not(:first-child) {
+  flex: 1;
+}
+
+.drift-table td {
+  font-family: 'Courier New', monospace;
+  color: #ffffff;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.drift-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.drift-table tbody tr:hover {
+  background: rgba(75, 192, 192, 0.04);
+}
+
+.drift-table td:first-child {
+  font-family: inherit;
+  color: #b9d7dc;
+  font-weight: 500;
+}
+
+.drift-source {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #b9d7dc;
+  text-align: left;
+  padding: 4px 2px 0;
+}

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 const CHART_HISTORY_LIMIT = 30;
 
-export function TelemetryCharts({ historySamples, latestTelemetry, viewState }) {
+export function TelemetryCharts({ historySamples, latestTelemetry, latestLandingPrediction, viewState }) {
   const presenterRef = useRef(null);
   const historySamplesRef = useRef(historySamples);
   const latestTelemetryRef = useRef(latestTelemetry);
@@ -129,6 +129,62 @@ export function TelemetryCharts({ historySamples, latestTelemetry, viewState }) 
         <div className="value-label">TX: <span>{viewState.metrics.latitude}</span>, <span>{viewState.metrics.longitude}</span></div>
         <div className="value-label">RX: <span>{viewState.metrics.receiverLatitude}</span>, <span>{viewState.metrics.receiverLongitude}</span></div>
       </article>
+
+      <article className="panel chart-panel info-panel">
+        <h2>Deriva</h2>
+        <div className="drift-table-wrapper">
+          <table className="drift-table">
+            <thead>
+              <tr>
+                <th>Vector</th>
+                <th>Norte</th>
+                <th>Este</th>
+                <th>Vel.</th>
+                <th>Dir.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Vel. horizontal (GPS)</td>
+                <td>{formatDriftValue(latestLandingPrediction?.horizontalVelocityVector?.northMps)}</td>
+                <td>{formatDriftValue(latestLandingPrediction?.horizontalVelocityVector?.eastMps)}</td>
+                <td>{formatDriftValue(latestLandingPrediction?.horizontalVelocityVector?.speedMps)}</td>
+                <td>{formatDirection(latestLandingPrediction?.horizontalVelocityVector?.directionDeg)}</td>
+              </tr>
+              <tr>
+                <td>Deriva fusionada</td>
+                <td>{formatDriftValue(latestLandingPrediction?.blendedDriftVector?.northMps)}</td>
+                <td>{formatDriftValue(latestLandingPrediction?.blendedDriftVector?.eastMps)}</td>
+                <td>{formatDriftValue(latestLandingPrediction?.blendedDriftVector?.speedMps)}</td>
+                <td>{formatDirection(latestLandingPrediction?.blendedDriftVector?.directionDeg)}</td>
+              </tr>
+              <tr>
+                <td>Viento modelado</td>
+                <td>{formatDriftValue(latestLandingPrediction?.windVector?.northMps)}</td>
+                <td>{formatDriftValue(latestLandingPrediction?.windVector?.eastMps)}</td>
+                <td>{formatDriftValue(latestLandingPrediction?.windVector?.speedMps)}</td>
+                <td>{formatDirection(latestLandingPrediction?.windVector?.directionDeg)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="drift-source">Fuente: <span>{formatWindSource(latestLandingPrediction?.windProfileSource)}</span></div>
+      </article>
     </section>
   );
+}
+
+function formatDriftValue(value) {
+  return Number.isFinite(value) ? `${value.toFixed(3)}` : '--';
+}
+
+function formatDirection(degrees) {
+  return Number.isFinite(degrees) ? `${degrees.toFixed(1)}°` : '--';
+}
+
+function formatWindSource(source) {
+  if (source === 'open-meteo') return 'Open-Meteo';
+  if (source === 'static-fallback') return 'Respaldo estatico';
+  if (source === 'static') return 'Perfil estatico';
+  return 'Sin perfil';
 }

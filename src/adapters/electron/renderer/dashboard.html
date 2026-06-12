@@ -82,6 +82,47 @@
       <canvas id="distanceChart"></canvas>
       <div class="value-label"><span id="distanceValue">0.00 m</span></div>
     </div>
+
+    <div class="panel info-panel">
+      <h2>Deriva</h2>
+      <div class="drift-table-wrapper">
+        <table class="drift-table">
+          <thead>
+            <tr>
+              <th>Vector</th>
+              <th>Norte</th>
+              <th>Este</th>
+              <th>Vel.</th>
+              <th>Dir.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Vel. horizontal (GPS)</td>
+              <td id="hVelNorth">--</td>
+              <td id="hVelEast">--</td>
+              <td id="hVelSpeed">--</td>
+              <td id="hVelDir">--</td>
+            </tr>
+            <tr>
+              <td>Deriva fusionada</td>
+              <td id="blendNorth">--</td>
+              <td id="blendEast">--</td>
+              <td id="blendSpeed">--</td>
+              <td id="blendDir">--</td>
+            </tr>
+            <tr>
+              <td>Viento modelado</td>
+              <td id="windNorth">--</td>
+              <td id="windEast">--</td>
+              <td id="windSpeed">--</td>
+              <td id="windDir">--</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="drift-source">Fuente: <span id="driftWindSource">--</span></div>
+    </div>
   </div>
 
   <div class="report-button-container">

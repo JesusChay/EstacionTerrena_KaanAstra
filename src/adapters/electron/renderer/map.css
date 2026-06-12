@@ -1,53 +1,58 @@
 @import url('./common.css');
 
 .map-layout {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 80px);
 }
 
 #map {
-  height: calc(100vh - 80px);
+  flex: 1;
   width: 100%;
+  height: auto;
 }
 
 .prediction-panel {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 500;
-  width: 320px;
-  padding: 16px;
+  width: 100%;
+  padding: 8px 16px;
   border: 1px solid rgba(75, 192, 192, 0.4);
-  border-radius: 14px;
+  border-bottom: none;
+  border-radius: 0;
   background: linear-gradient(180deg, rgba(24, 24, 24, 0.96), rgba(35, 35, 35, 0.93));
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .prediction-panel-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .prediction-overline {
-  margin-bottom: 4px;
-  color: #7fd7d7;
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  margin-bottom: 0;
+  font-size: 10px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: #7fd7d7;
 }
 
 .prediction-panel h2 {
-  font-size: 18px;
-  line-height: 1.25;
+  font-size: 14px;
+  line-height: 1.2;
+  margin: 0;
 }
 
 .prediction-phase-badge {
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -75,68 +80,75 @@
 }
 
 .prediction-metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 0;
 }
 
 .prediction-metric-card {
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  background-color: rgba(255, 255, 255, 0.04);
+  padding: 4px 12px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prediction-metric-card:last-child {
+  border-right: none;
 }
 
 .prediction-metric-label,
 .prediction-detail-label {
-  display: block;
-  margin-bottom: 4px;
+  display: inline;
+  margin-bottom: 0;
   color: #a7c9cd;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .prediction-metric-card strong,
 .prediction-detail-value {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
+  margin-left: 4px;
 }
 
 .prediction-detail-stack {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 0;
 }
 
 .prediction-detail-row {
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.prediction-detail-row:last-child {
   padding-bottom: 0;
   border-bottom: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .prediction-legend {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
   color: #d7ebef;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .prediction-legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .legend-swatch {
   display: inline-flex;
-  width: 18px;
-  height: 10px;
+  width: 14px;
+  height: 8px;
   border-radius: 999px;
 }
 
@@ -150,8 +162,8 @@
 }
 
 .legend-swatch-impact {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background-color: #4bc0c0;
   box-shadow: 0 0 0 3px rgba(75, 192, 192, 0.18);

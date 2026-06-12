@@ -319,6 +319,49 @@ window.api.onReceiverLocation((location) => {
   applyReceiverLocationState(location);
 });
 
+function updateDriftCell(elementId, value) {
+  const element = document.getElementById(elementId);
+  if (element) {
+    element.textContent = Number.isFinite(value) ? value.toFixed(3) : '--';
+  }
+}
+
+function updateDriftDirCell(elementId, value) {
+  const element = document.getElementById(elementId);
+  if (element) {
+    element.textContent = Number.isFinite(value) ? `${value.toFixed(1)}°` : '--';
+  }
+}
+
+function formatWindSourceLabel(source) {
+  if (source === 'open-meteo') return 'Open-Meteo';
+  if (source === 'static-fallback') return 'Respaldo estatico';
+  if (source === 'static') return 'Perfil estatico';
+  return 'Sin perfil';
+}
+
+window.api.onLandingPrediction((prediction) => {
+  updateDriftCell('hVelNorth', prediction?.horizontalVelocityVector?.northMps);
+  updateDriftCell('hVelEast', prediction?.horizontalVelocityVector?.eastMps);
+  updateDriftCell('hVelSpeed', prediction?.horizontalVelocityVector?.speedMps);
+  updateDriftDirCell('hVelDir', prediction?.horizontalVelocityVector?.directionDeg);
+
+  updateDriftCell('blendNorth', prediction?.blendedDriftVector?.northMps);
+  updateDriftCell('blendEast', prediction?.blendedDriftVector?.eastMps);
+  updateDriftCell('blendSpeed', prediction?.blendedDriftVector?.speedMps);
+  updateDriftDirCell('blendDir', prediction?.blendedDriftVector?.directionDeg);
+
+  updateDriftCell('windNorth', prediction?.windVector?.northMps);
+  updateDriftCell('windEast', prediction?.windVector?.eastMps);
+  updateDriftCell('windSpeed', prediction?.windVector?.speedMps);
+  updateDriftDirCell('windDir', prediction?.windVector?.directionDeg);
+
+  const windSourceEl = document.getElementById('driftWindSource');
+  if (windSourceEl) {
+    windSourceEl.textContent = formatWindSourceLabel(prediction?.windProfileSource);
+  }
+});
+
 async function initializeDashboard() {
   applyReceiverLocationState({
     status: 'searching',

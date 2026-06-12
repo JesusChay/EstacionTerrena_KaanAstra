@@ -1,16 +1,20 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 
-const MODEL_ASSET_PATH = new URL('../../../../assets/cohete.stl', import.meta.url).href;
+const ROCKET_ASSET_PATH = new URL('../../../../assets/cohete.stl', import.meta.url).href;
+const CANSAT_ASSET_PATH = new URL('../../../../assets/cansat.stl', import.meta.url).href;
 const TARGET_MODEL_SIZE = 3.2;
 
 let scene;
 let camera;
 let renderer;
+let rocketModel;
+let cansatModel;
 let activeModel;
 let fallbackModel;
 let light;
 let model3dInitialized = false;
+let isDeployed = false;
 
 function initializeModel3D() {
   if (model3dInitialized) return;
@@ -27,7 +31,7 @@ function initializeModel3D() {
   fallbackModel = buildFallbackModel();
   activeModel = fallbackModel;
   scene.add(fallbackModel);
-  loadRocketModel();
+  loadModels();
 
   light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(1, 1, 2).normalize();
@@ -60,24 +64,61 @@ function handleResize() {
   renderer.setSize(container.offsetWidth, container.offsetHeight);
 }
 
-function loadRocketModel() {
+function loadModels() {
   const loader = new STLLoader();
+
   loader.load(
-    MODEL_ASSET_PATH,
+    ROCKET_ASSET_PATH,
     (geometry) => {
-      const rocketModel = buildLoadedModel(geometry);
-      scene.remove(fallbackModel);
-      activeModel = rocketModel;
+      rocketModel = buildLoadedModel(geometry, -0.4);
+      rocketModel.visible = !isDeployed;
       scene.add(rocketModel);
+      onModelLoaded();
     },
     undefined,
-    () => {
-      activeModel = fallbackModel;
-    }
+    () => {}
+  );
+
+  loader.load(
+    CANSAT_ASSET_PATH,
+    (geometry) => {
+      cansatModel = buildLoadedModel(geometry, 0);
+      cansatModel.visible = isDeployed;
+      scene.add(cansatModel);
+      onModelLoaded();
+    },
+    undefined,
+    () => {}
   );
 }
 
+function onModelLoaded() {
+  if (!rocketModel || !cansatModel) return;
+  scene.remove(fallbackModel);
+  activeModel = isDeployed ? cansatModel : rocketModel;
+}
+
+function setDeploymentStatus(deployed) {
+  isDeployed = deployed === true;
+  if (rocketModel && cansatModel) {
+    rocketModel.visible = !isDeployed;
+    cansatModel.visible = isDeployed;
+    activeModel = isDeployed ? cansatModel : rocketModel;
+  }
+
+  const modeChip = document.getElementById('modelModeChip');
+  if (modeChip) {
+    modeChip.textContent = isDeployed ? 'CanSat' : 'Cohete';
+    modeChip.className = `chip-chip ${isDeployed ? 'chip-cansat' : 'chip-cohete'}`;
+  }
+}
+
 window.api.onPayloadData((data) => {
+  const deployed = data.decouplingStatus === true;
+  if (deployed !== isDeployed) {
+    setDeploymentStatus(deployed);
+  }
+
   if (activeModel) {
     const gyroxRad = data.gyroxRad !== undefined ? Number.parseFloat(data.gyroxRad) : (data.gyrox !== undefined ? Number.parseFloat(data.gyrox) * 0.0174533 : 0);
     const gyroyRad = data.gyroyRad !== undefined ? Number.parseFloat(data.gyroyRad) : (data.gyroy !== undefined ? Number.parseFloat(data.gyroy) * 0.0174533 : 0);
@@ -104,7 +145,7 @@ function buildFallbackModel() {
   return mesh;
 }
 
-function buildLoadedModel(geometry) {
+function buildLoadedModel(geometry, positionY) {
   geometry.center();
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
@@ -124,7 +165,7 @@ function buildLoadedModel(geometry) {
   );
 
   mesh.scale.setScalar(scaleFactor);
-  mesh.position.set(0, -0.4, 0);
+  mesh.position.set(0, positionY, 0);
   mesh.userData.baseRotation = { x: -Math.PI / 2, y: 0, z: 0 };
   applyTelemetryRotation(mesh, 0, 0, 0);
   return mesh;
