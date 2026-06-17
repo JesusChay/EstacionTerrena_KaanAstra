@@ -85,6 +85,39 @@ function logTelemetryDebug(prefix, payload) {
     }
 }
 
+function normalizeUsbIdentifier(value) {
+    return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function resolveSerialPortDisplayName(port) {
+    const vendorId = normalizeUsbIdentifier(port.vendorId);
+    const productId = normalizeUsbIdentifier(port.productId);
+    const pnpId = normalizeUsbIdentifier(port.pnpId);
+    const manufacturer = typeof port.manufacturer === 'string' ? port.manufacturer.trim() : '';
+
+    const isEspressifDevice = vendorId === '303A' || pnpId.includes('VID_303A');
+    if (isEspressifDevice) {
+        if (productId === '1001' || pnpId.includes('PID_1001')) {
+            return 'ESP32-S3 USB JTAG/Serial';
+        }
+
+        return 'ESP32-S3 USB';
+    }
+
+    return manufacturer || 'Desconocido';
+}
+
+function formatSerialPortDetails(port) {
+    const vendorId = normalizeUsbIdentifier(port.vendorId);
+    const productId = normalizeUsbIdentifier(port.productId);
+
+    if (!vendorId && !productId) {
+        return '';
+    }
+
+    return `VID:${vendorId || '????'} PID:${productId || '????'}`;
+}
+
 const telemetryPublisher = createTelemetryApiPublisher({
     url: TELEMETRY_API_URL,
     enabled: TELEMETRY_API_ENABLED,
@@ -346,7 +379,21 @@ function initializeSerialPort(portName, baudRate = 115200) {
 ipcMain.handle('list-serial-ports', async () => {
     try {
         const ports = await SerialPort.list();
-        return ports.map(port => ({ path: port.path, manufacturer: port.manufacturer || 'Desconocido' }));
+        return ports.map((port) => {
+            const displayName = resolveSerialPortDisplayName(port);
+            const details = formatSerialPortDetails(port);
+
+            return {
+                path: port.path,
+                manufacturer: port.manufacturer || 'Desconocido',
+                displayName,
+                details,
+                vendorId: port.vendorId,
+                productId: port.productId,
+                pnpId: port.pnpId,
+                serialNumber: port.serialNumber
+            };
+        });
     } catch (err) {
         console.error('❌ Error al listar puertos:', err.message);
         sendToWindow(dashboardWindow, 'error', 'No se pudieron listar los puertos seriales.');

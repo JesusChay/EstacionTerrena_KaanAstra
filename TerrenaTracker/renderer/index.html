@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file:; img-src 'self' file: data:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terrena Tracker</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../../node_modules/three/build/three.module.js",
+        "three/addons/": "../../node_modules/three/examples/jsm/",
+        "chart.js/auto": "../../node_modules/chart.js/auto/auto.js",
+        "@kurkle/color": "../../node_modules/@kurkle/color/dist/color.esm.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="banner">
+    <div class="titulo">
+      <img src="../assets/logo.png" alt="Logo" class="logo">
+      <h1 class="titulo-texto">Terrena Tracker</h1>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <div class="model3d-area">
+      <div class="panel-header">
+        <h2>Modelo 3D</h2>
+        <span class="chip chip-veleta">Veleta</span>
+      </div>
+      <div id="model3d-container"></div>
+    </div>
+    <div class="sensor-column">
+      <div class="panel">
+        <h2>Magnetómetro</h2>
+        <canvas id="magChart"></canvas>
+        <div class="value-label" id="magValue">X: 0.00 Y: 0.00 Z: 0.00 µT | H: 0° (N) | T: 0.00 µT</div>
+      </div>
+      <div class="panel">
+        <h2>Sensor Viento Rev C</h2>
+        <canvas id="windChart"></canvas>
+        <div class="value-label" id="windValue">Vel: 0.0 m/s | Dir: 0° N | Raf: 0.0 m/s | Temp: 0.0 °C</div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

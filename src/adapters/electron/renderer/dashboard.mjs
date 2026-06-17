@@ -374,7 +374,9 @@ async function initializeDashboard() {
     ports.forEach((port) => {
       const option = document.createElement('option');
       option.value = port.path;
-      option.text = `${port.path} (${port.manufacturer || 'Desconocido'})`;
+      const label = port.displayName || port.manufacturer || 'Desconocido';
+      const details = port.details ? `, ${port.details}` : '';
+      option.text = `${port.path} (${label}${details})`;
       select.appendChild(option);
     });
 
