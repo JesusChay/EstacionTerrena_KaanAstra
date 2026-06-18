@@ -59,12 +59,82 @@ body {
   font-weight: bold;
 }
 
-.app-layout {
+.serial-port-selector {
+  margin-right: 10px;
+}
+
+#serialPortSelect {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  min-width: 200px;
+}
+
+#serialPortSelect option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.tab-bar {
   display: flex;
+  gap: 8px;
+  padding: 6px var(--page-padding);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab-button {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: var(--font-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: var(--text);
+  background: rgba(75, 192, 192, 0.08);
+}
+
+.tab-button.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(75, 192, 192, 0.12);
+}
+
+.tab-panel {
+  display: none;
   flex: 1;
+  min-height: 0;
+}
+
+.tab-panel.is-active {
+  display: flex;
+}
+
+.app-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   gap: var(--layout-gap);
   padding: var(--page-padding);
   min-height: 0;
+}
+
+#panel-dashboard {
+  gap: var(--layout-gap);
+}
+
+#panel-dashboard.is-active {
+  display: flex;
 }
 
 .model3d-area {
@@ -161,4 +231,59 @@ body {
   background: rgba(75, 192, 192, 0.2);
   color: var(--accent);
   border: 1px solid rgba(75, 192, 192, 0.35);
+}
+
+#panel-map.is-active {
+  display: flex;
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+
+#map {
+  flex: 1;
+  min-height: 0;
+  border-radius: 8px;
+}
+
+.map-info-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(30, 30, 30, 0.92);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 200px;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.map-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(75, 192, 192, 0.1);
+}
+
+.map-info-row:last-child {
+  border-bottom: none;
+}
+
+.map-info-label {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.map-info-value {
+  color: var(--text);
+  font-family: "Courier New", monospace;
+  text-align: right;
 }

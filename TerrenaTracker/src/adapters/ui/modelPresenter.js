@@ -5,8 +5,22 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const STL_PATH = new URL("../../../assets/veleta.stl", import.meta.url).href;
 const TARGET_MODEL_SIZE = 3.2;
 
+const COMPASS_MAP = {
+  "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
+  "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
+  "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
+  "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5
+};
+
 let scene, camera, renderer, controls, model;
 let initialized = false;
+let currentCompassDeg = null;
+let hasReceivedData = false;
+let clock = new THREE.Clock();
+
+function compassToDegrees(dir) {
+  return COMPASS_MAP[dir] !== undefined ? COMPASS_MAP[dir] : null;
+}
 
 export function initModel3D(containerId) {
   if (initialized) return;
@@ -61,9 +75,7 @@ function loadModel() {
       scene.add(model);
     },
     undefined,
-    () => {
-      // keep empty scene if model fails to load
-    }
+    () => {}
   );
 }
 
@@ -87,6 +99,7 @@ function buildModel(geometry) {
   );
 
   mesh.scale.setScalar(scale);
+  mesh.rotation.order = "YXZ";
   return mesh;
 }
 
@@ -101,9 +114,36 @@ function handleResize(containerId) {
   renderer.setSize(w, h);
 }
 
+export function updateModelRotation(compassDir) {
+  if (!compassDir) return;
+  const deg = compassToDegrees(compassDir);
+  if (deg === null) return;
+  hasReceivedData = true;
+  currentCompassDeg = deg;
+  if (controls) controls.autoRotate = false;
+}
+
+function lerpAngleRad(current, target, factor) {
+  let diff = target - current;
+  if (diff > Math.PI) diff -= Math.PI * 2;
+  if (diff < -Math.PI) diff += Math.PI * 2;
+  return current + diff * factor;
+}
+
 function animate() {
   globalThis.requestAnimationFrame(animate);
+
+  if (model) {
+    if (hasReceivedData && currentCompassDeg !== null) {
+      const targetRad = THREE.MathUtils.degToRad(currentCompassDeg);
+      const elapsed = clock.getElapsedTime();
+      const windOscillation = THREE.MathUtils.degToRad(Math.sin(elapsed * 1.5) * 3);
+      model.rotation.y = lerpAngleRad(model.rotation.y, targetRad + windOscillation, 0.05);
+    } else {
+      clock.getElapsedTime();
+    }
+  }
+
   if (controls) controls.update();
   if (renderer && scene && camera) renderer.render(scene, camera);
 }
-
