@@ -47,7 +47,7 @@ function handleSerialLine(line) {
 function startSerialPort(portName) {
   try {
     serialPort = new SerialPort({ path: portName, baudRate: 115200 });
-    parser = serialPort.pipe(new ReadlineParser({ delimiter: "\r\n" }));
+    parser = serialPort.pipe(new ReadlineParser({ delimiter: "\n" }));
     parser.on("data", handleSerialLine);
     serialPort.on("error", (err) => sendError("Serial: " + err.message));
   } catch (err) {

@@ -81,7 +81,7 @@ var headingChart = createLineChart(
 
 var windChart = createLineChart(
   document.getElementById("windChart").getContext("2d"),
-  "Velocidad", "m/s", "#00bcd4"
+    "Velocidad", "km/h", "#00bcd4"
 );
 
 function updateDashboardUI(data) {
