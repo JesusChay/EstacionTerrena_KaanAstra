@@ -175,11 +175,6 @@ function setReceiverLocationMeta(message) {
   document.getElementById('receiverLocationMeta').textContent = message;
 }
 
-function setReceiverLocationActions({ showSettings = false, showRefresh = true } = {}) {
-  document.getElementById('openLocationSettingsBtn').style.display = showSettings ? 'inline-block' : 'none';
-  document.getElementById('refreshLocationBtn').style.display = showRefresh ? 'inline-block' : 'none';
-}
-
 function formatReceiverLocationMeta({ latitude, longitude, accuracy }) {
   const parts = [`Lat ${latitude.toFixed(6)}`, `Lon ${longitude.toFixed(6)}`];
   if (Number.isFinite(accuracy)) {
@@ -200,32 +195,32 @@ function applyReceiverLocationState(locationState = {}) {
   switch (status) {
     case 'active':
       setReceiverLocationStatus('activa', '#00ff88');
-      setReceiverLocationActions({ showSettings: false, showRefresh: true });
+
       break;
     case 'low_accuracy':
       setReceiverLocationStatus(message || 'activa (precision baja)', '#ff9800');
-      setReceiverLocationActions({ showSettings: false, showRefresh: true });
+
       break;
     case 'permission_denied':
       setReceiverLocationStatus(message || 'permiso denegado — activa Ubicacion en Configuracion de Windows', '#ff4d4f');
-      setReceiverLocationActions({ showSettings: true, showRefresh: true });
+
       break;
     case 'unavailable':
       setReceiverLocationStatus(message || 'ubicacion no disponible — verifica WiFi o GPS', '#ff9800');
-      setReceiverLocationActions({ showSettings: true, showRefresh: true });
+
       break;
     case 'unsupported':
       setReceiverLocationStatus(message || 'no soportada por el sistema', '#ff9800');
-      setReceiverLocationActions({ showSettings: false, showRefresh: false });
+
       break;
     case 'error':
       setReceiverLocationStatus(message || 'error del proveedor de ubicacion del sistema', '#ff4d4f');
-      setReceiverLocationActions({ showSettings: true, showRefresh: true });
+
       break;
     case 'searching':
     default:
       setReceiverLocationStatus('buscando...', '#4bc0c0');
-      setReceiverLocationActions({ showSettings: false, showRefresh: true });
+
       break;
   }
 }
@@ -389,19 +384,6 @@ async function initializeDashboard() {
 
 document.getElementById('generateReportBtn').addEventListener('click', () => {
   window.api.generateReport();
-});
-
-document.getElementById('refreshLocationBtn').addEventListener('click', async () => {
-  setReceiverLocationStatus('buscando...', '#4bc0c0');
-  setReceiverLocationMeta('Solicitando nueva lectura del sistema...');
-  await window.api.refreshReceiverLocation();
-});
-
-document.getElementById('openLocationSettingsBtn').addEventListener('click', async () => {
-  const result = await window.api.openLocationSettings();
-  if (!result?.success) {
-    showNotification(result?.message || 'No se pudo abrir la configuracion de ubicacion');
-  }
 });
 
 globalThis.window.setInterval(() => {

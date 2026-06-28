@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
@@ -15,7 +15,6 @@ const { resolveSerialTelemetryInput } = require('./adapters/serial/resolveSerial
 const { parseTelemetryMessage } = require('./adapters/serial/telemetryParser');
 const { createLandingPredictionApiPublisher } = require('./infrastructure/http/createLandingPredictionApiPublisher');
 const { createTelemetryApiPublisher } = require('./infrastructure/http/createTelemetryApiPublisher');
-const { createSystemReceiverLocationTracker } = require('./infrastructure/location/createSystemReceiverLocationTracker');
 const { createOpenMeteoClient } = require('./infrastructure/weather/createOpenMeteoClient');
 const { createOpenMeteoWindProfileProvider } = require('./infrastructure/weather/createOpenMeteoWindProfileProvider');
 const { createDesktopReportWriter } = require('./infrastructure/reporting/createDesktopReportWriter');
@@ -43,10 +42,6 @@ const OPEN_METEO_COORDINATE_THRESHOLD_METERS = Number.parseInt(process.env.OPEN_
 const OPEN_METEO_MODELS = process.env.OPEN_METEO_MODELS;
 const OPEN_METEO_REFRESH_INTERVAL_MS = Number.parseInt(process.env.OPEN_METEO_REFRESH_INTERVAL_MS || '900000', 10);
 let serialDebugEnabled = true;
-
-const dotenv = loadDotenv();
-
-const GOOGLE_GEOLOCATION_API_KEY = process.env.GOOGLE_GEOLOCATION_API_KEY || dotenv.GOOGLE_GEOLOCATION_API_KEY;
 
 const electronAdaptersDir = path.join(__dirname, 'adapters', 'electron');
 const rendererDir = path.join(electronAdaptersDir, 'renderer');
@@ -158,61 +153,7 @@ const telemetryProcessor = createTelemetryProcessor({
     }
 });
 
-const GOOGLE_GEOLOCATION_URL = 'https://www.googleapis.com/geolocation/v1/geolocate';
-const GOOGLE_GEOLOCATION_TIMEOUT_MS = 10000;
-
-if (!GOOGLE_GEOLOCATION_API_KEY) {
-    console.warn('⚠️  GOOGLE_GEOLOCATION_API_KEY no configurada — se usara geolocalizacion por IP');
-}
-
-function createGoogleLocationReader() {
-    return async function readLocationViaGoogle() {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), GOOGLE_GEOLOCATION_TIMEOUT_MS);
-
-        try {
-            const response = await fetch(`${GOOGLE_GEOLOCATION_URL}?key=${GOOGLE_GEOLOCATION_API_KEY}`, {
-                method: 'POST',
-                signal: controller.signal,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ considerIp: true })
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`GOOGLE_API_ERROR: ${response.status} ${text}`);
-            }
-
-            const data = await response.json();
-            if (!data.location || !Number.isFinite(data.location.lat) || !Number.isFinite(data.location.lng)) {
-                throw new Error('LOCATION_INVALID_COORDINATES');
-            }
-
-            return {
-                latitude: data.location.lat,
-                longitude: data.location.lng,
-                accuracy: Number.isFinite(data.accuracy) ? data.accuracy : undefined
-            };
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                throw new Error('LOCATION_TIMEOUT');
-            }
-            throw error;
-        } finally {
-            clearTimeout(timeoutId);
-        }
-    };
-}
-
 const simulationTelemetrySource = createSimulationTelemetrySource();
-const receiverLocationTracker = createSystemReceiverLocationTracker({
-    locationReader: GOOGLE_GEOLOCATION_API_KEY ? createGoogleLocationReader() : null,
-    onLocation: handleSystemReceiverLocation,
-    onStatus: broadcastReceiverLocationState,
-    infoLogger: (message) => console.log(message),
-    warnLogger: (message) => console.warn(message)
-});
-
 const landingPredictionPublisher = createLandingPredictionApiPublisher({
     url: LANDING_PREDICTION_API_URL,
     enabled: LANDING_PREDICTION_API_ENABLED,
@@ -342,7 +283,6 @@ function initGroundGpsWatcher() {
 
 app.whenReady().then(() => {
     createWindows();
-    receiverLocationTracker.start();
     initGroundGpsWatcher();
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindows();
@@ -481,25 +421,6 @@ ipcMain.handle('set-receiver-location', async (event, coords) => {
         return { success: true, receiverLocation };
     }
     return { success: false, message: 'Coordenadas invalidas' };
-});
-
-ipcMain.handle('open-location-settings', async () => {
-    if (process.platform === 'win32') {
-        await shell.openExternal('ms-settings:privacy-location');
-        return { success: true };
-    }
-
-    if (process.platform === 'darwin') {
-        await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices');
-        return { success: true };
-    }
-
-    return { success: false, message: 'Atajo de configuracion no disponible en esta plataforma' };
-});
-
-ipcMain.handle('refresh-receiver-location', async () => {
-    await receiverLocationTracker.refresh();
-    return { success: true };
 });
 
 ipcMain.handle('send-command', async (event, command) => {
