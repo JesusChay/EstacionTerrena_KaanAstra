@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include <dirent.h>
 #include <sys/stat.h>
 #include "driver/i2c.h"
 #include "driver/uart.h"
@@ -18,34 +17,29 @@
 #include "esp_timer.h"
 
 // ============================================
-// DEFINICIONES GENERALES Y PINES
+// DEFINICIONES Y PINES
 // ============================================
 
-// I2C configuration (GY-87)
 #define I2C_MASTER_SCL_IO         5
 #define I2C_MASTER_SDA_IO         4
 #define I2C_MASTER_FREQ_HZ        100000
 #define I2C_MASTER_PORT_NUM       I2C_NUM_0
 
-// UART GPS (GT-U7) - UART0 (solo RX para minimizar conflictos con USB)
 #define GPS_UART_PORT             UART_NUM_0
 #define GPS_TX_PIN                GPIO_NUM_43
 #define GPS_RX_PIN                GPIO_NUM_44
 #define GPS_BUF_SIZE              256
 
-// UART LoRa (RYLR998) - UART1
 #define LORA_UART_PORT            UART_NUM_1
-#define LORA_TX_PIN               GPIO_NUM_37
-#define LORA_RX_PIN               GPIO_NUM_38
+#define LORA_TX_PIN               GPIO_NUM_36
+#define LORA_RX_PIN               GPIO_NUM_35
 #define LORA_BUF_SIZE             256
 
-// UART XBee (XB3-24AUT-J) - UART2
 #define XBEE_UART_PORT            UART_NUM_2
-#define XBEE_TX_PIN               GPIO_NUM_35
-#define XBEE_RX_PIN               GPIO_NUM_36
+#define XBEE_TX_PIN               GPIO_NUM_38
+#define XBEE_RX_PIN               GPIO_NUM_37
 #define XBEE_BUF_SIZE             256
 
-// SD Card (SPI)
 #define SD_PIN_CLK                18
 #define SD_PIN_MOSI               47
 #define SD_PIN_MISO               48
@@ -53,20 +47,25 @@
 #define SD_MOUNT_POINT            "/sdcard"
 #define SD_DATA_FILE              "/sdcard/data.txt"
 
-// Intervalo de envío de telemetría (3 segundos para cumplir duty cycle LoRa)
-#define TELEMETRY_INTERVAL_MS     3000
-#define SD_WRITE_INTERVAL         4      // Cada 4 ciclos (2 segundos)
+// ============================================
+// CONFIGURACIÓN DE TELEMETRÍA
+// ============================================
+
+#define NORMAL_INTERVAL_MS        3000
+#define MISSION_INTERVAL_MS       500
+#define AIR_TIME_PER_PACKET_MS    251     // 38 bytes (SF9, BW125)
+#define MAX_AIR_TIME_MS           340000
+#define SD_WRITE_INTERVAL         4
+#define BMP_RETRY_INTERVAL_MS     10000
+#define SD_RETRY_INTERVAL_MS      30000
 
 // ============================================
-// DIRECCIONES I2C DE LOS SENSORES
+// DIRECCIONES Y REGISTROS I2C
 // ============================================
 #define MPU6050_ADDR              0x68
 #define HMC5883L_ADDR             0x1E
 #define BMP180_ADDR               0x77
 
-// ============================================
-// REGISTROS MPU6050
-// ============================================
 #define MPU6050_PWR_MGMT_1        0x6B
 #define MPU6050_INT_PIN_CFG       0x37
 #define MPU6050_USER_CTRL         0x6A
@@ -74,18 +73,12 @@
 #define MPU6050_ACCEL_XOUT_H      0x3B
 #define MPU6050_GYRO_XOUT_H       0x43
 
-// ============================================
-// REGISTROS HMC5883L
-// ============================================
 #define HMC5883L_CONFIG_A         0x00
 #define HMC5883L_CONFIG_B         0x01
 #define HMC5883L_MODE             0x02
 #define HMC5883L_DATA_X_H         0x03
 #define HMC5883L_STATUS           0x09
 
-// ============================================
-// REGISTROS BMP180
-// ============================================
 #define BMP180_CAL_AC1            0xAA
 #define BMP180_CAL_AC2            0xAC
 #define BMP180_CAL_AC3            0xAE
@@ -101,19 +94,13 @@
 #define BMP180_TEMPDATA           0xF6
 #define BMP180_PRESSUREDATA       0xF6
 
-// BMP180 commands
 #define BMP180_READTEMPCMD        0x2E
 #define BMP180_READPRESSURECMD    0x34
 #define BMP180_STANDARD           1
 
-// ============================================
-// CONSTANTES Y PARÁMETROS
-// ============================================
 #define INITIAL_READINGS_BMP      5
 #define FILTER_WINDOW_SIZE        10
 #define ALTITUDE_MAX_JUMP         10.0f
-
-static const char *TAG = "CANSAT";
 
 // ============================================
 // ESTRUCTURA DE DATOS CAN-SAT (38 bytes)
@@ -133,8 +120,19 @@ typedef struct __attribute__((packed)) {
 cansat_t telemetry;
 
 // ============================================
-// VARIABLES GLOBALES - GY-87
+// VARIABLES GLOBALES
 // ============================================
+bool mission_mode = false;
+bool lora_available = true;
+bool gps_fix = false;
+bool bmp_ready = false;
+bool sd_ready = false;
+bool first_bmp_readings_done = false;
+
+uint32_t total_air_time_ms = 0;
+uint32_t last_bmp_retry = 0;
+uint32_t last_sd_retry = 0;
+uint32_t last_telemetry_send = 0;
 
 float mag_bias[3] = {0, 0, 0};
 float mag_scale[3] = {1.0, 1.0, 1.0};
@@ -164,33 +162,19 @@ static float ax = 0.0f, ay = 0.0f, az = 0.0f;
 static float gx = 0.0f, gy = 0.0f, gz = 0.0f;
 static float mx = 0.0f, my = 0.0f, mz = 0.0f;
 
-// ============================================
-// VARIABLES GLOBALES - GPS
-// ============================================
 static float last_valid_lat = 0;
 static float last_valid_lon = 0;
-static int gps_first_fix_received = 0;
 
 static float gps_altitude_buffer[FILTER_WINDOW_SIZE] = {0};
 static float gps_altitude_sum = 0;
 static int gps_alt_index = 0;
 
-// ============================================
-// VARIABLES GLOBALES - SD CARD
-// ============================================
 static sdmmc_card_t *sdcard = NULL;
-static int sd_ready = 0;
 static int sd_write_counter = 0;
 
 // ============================================
-// VARIABLES GLOBALES - TELEMETRÍA
+// FUNCIONES I2C
 // ============================================
-static uint32_t last_telemetry_send = 0;
-
-// ============================================
-// FUNCIONES I2C BASE
-// ============================================
-
 void i2c_master_init(void) {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -200,8 +184,8 @@ void i2c_master_init(void) {
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
-    ESP_ERROR_CHECK(i2c_param_config(I2C_MASTER_PORT_NUM, &conf));
-    ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_PORT_NUM, conf.mode, 0, 0, 0));
+    i2c_param_config(I2C_MASTER_PORT_NUM, &conf);
+    i2c_driver_install(I2C_MASTER_PORT_NUM, conf.mode, 0, 0, 0);
 }
 
 esp_err_t i2c_register_write(uint8_t dev_addr, uint8_t reg_addr, uint8_t data) {
@@ -234,9 +218,8 @@ esp_err_t i2c_register_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, s
 }
 
 // ============================================
-// SECCIÓN GY-87 - MPU6050
+// GY-87 - MPU6050
 // ============================================
-
 void enable_bypass_mode(void) {
     i2c_register_write(MPU6050_ADDR, MPU6050_USER_CTRL, 0x00);
     i2c_register_write(MPU6050_ADDR, MPU6050_INT_PIN_CFG, 0x02);
@@ -263,9 +246,8 @@ void mpu6050_read_accel_gyro(int16_t *accel, int16_t *gyro) {
 }
 
 // ============================================
-// SECCIÓN GY-87 - HMC5883L
+// GY-87 - HMC5883L
 // ============================================
-
 void hmc5883l_init(void) {
     i2c_register_write(HMC5883L_ADDR, HMC5883L_CONFIG_A, 0x78);
     i2c_register_write(HMC5883L_ADDR, HMC5883L_CONFIG_B, 0x20);
@@ -329,9 +311,8 @@ void calibrate_magnetometer(void) {
 }
 
 // ============================================
-// SECCIÓN GY-87 - BMP180
+// GY-87 - BMP180
 // ============================================
-
 void bmp180_read_calibration_data(void) {
     uint8_t cal_data[22];
     
@@ -471,8 +452,10 @@ float calculate_altitude_bmp(float pressure_pa, float reference_pressure_pa) {
 void update_altitude_bmp(float pressure_pa) {
     float new_altitude = calculate_altitude_bmp(pressure_pa, ref_pressure_bmp);
     
-    if (fabsf(new_altitude - filtered_altitude_bmp) > ALTITUDE_MAX_JUMP) {
-        return;
+    if (first_bmp_readings_done) {
+        if (fabsf(new_altitude - filtered_altitude_bmp) > ALTITUDE_MAX_JUMP) {
+            return;
+        }
     }
     
     filtered_altitude_bmp = new_altitude;
@@ -485,10 +468,79 @@ void update_altitude_bmp(float pressure_pa) {
     altitude_bmp = altitude_sum / FILTER_WINDOW_SIZE;
 }
 
-// ============================================
-// SECCIÓN GPS - GT-U7 (UART0, solo RX)
-// ============================================
+bool init_bmp180_with_retry(void) {
+    if (bmp180_begin()) {
+        bmp_ready = true;
+        return true;
+    } else {
+        bmp_ready = false;
+        return false;
+    }
+}
 
+void read_bmp180_sensor(void) {
+    if (!bmp_ready) {
+        uint32_t now = esp_timer_get_time() / 1000;
+        if (now - last_bmp_retry >= BMP_RETRY_INTERVAL_MS) {
+            last_bmp_retry = now;
+            if (init_bmp180_with_retry()) {
+                pressure_readings_count_bmp = 0;
+                first_bmp_readings_done = false;
+            }
+        }
+        return;
+    }
+    
+    int32_t ut = bmp180_read_raw_temp();
+    if (ut > 0) {
+        temp_celsius = bmp180_calculate_temp(ut);
+        telemetry.temperature = (int16_t)(temp_celsius * 100.0f);
+    } else {
+        temp_celsius = 0.0f;
+        telemetry.temperature = 0;
+    }
+    
+    int32_t up = bmp180_read_raw_pressure(BMP180_STANDARD);
+    if (up > 0) {
+        int32_t pressure_pa = bmp180_calculate_pressure(up, BMP180_STANDARD);
+        if (pressure_pa > 0) {
+            pressure_hpa = (float)pressure_pa / 100.0f;
+            telemetry.pressure = (uint32_t)((float)pressure_pa * 10.0f);
+            
+            if (pressure_readings_count_bmp < INITIAL_READINGS_BMP) {
+                initial_pressures_bmp[pressure_readings_count_bmp] = pressure_pa;
+                pressure_readings_count_bmp++;
+                
+                if (pressure_readings_count_bmp == INITIAL_READINGS_BMP) {
+                    float sum = 0;
+                    for (int i = 0; i < INITIAL_READINGS_BMP; i++) {
+                        sum += initial_pressures_bmp[i];
+                    }
+                    ref_pressure_bmp = sum / INITIAL_READINGS_BMP;
+                    first_bmp_readings_done = true;
+                    
+                    float first_alt = calculate_altitude_bmp(pressure_pa, ref_pressure_bmp);
+                    for (int i = 0; i < FILTER_WINDOW_SIZE; i++) {
+                        altitude_buffer[i] = first_alt;
+                        altitude_sum += first_alt;
+                    }
+                    altitude_bmp = first_alt;
+                    filtered_altitude_bmp = first_alt;
+                    alt_index = 0;
+                }
+                telemetry.altitude_gy = 0;
+                altitude_bmp = 0.0f;
+            } else {
+                update_altitude_bmp(pressure_pa);
+                telemetry.altitude_gy = (int16_t)altitude_bmp;
+            }
+        }
+    }
+}
+
+// ============================================
+// GPS
+// ============================================
 float convert_to_decimal_degrees(float raw_degrees, char direction) {
     int degrees = (int)(raw_degrees / 100);
     float minutes = raw_degrees - (degrees * 100);
@@ -526,8 +578,8 @@ void process_gpgga(const char *message) {
         last_valid_lat = convert_to_decimal_degrees(lat_raw, lat_dir);
         last_valid_lon = convert_to_decimal_degrees(lon_raw, lon_dir);
         
-        if (!gps_first_fix_received) {
-            gps_first_fix_received = 1;
+        if (!gps_fix) {
+            gps_fix = true;
         }
         
         float gps_altitude = atof(altitude);
@@ -577,9 +629,8 @@ void read_gps_data(void) {
 }
 
 // ============================================
-// SECCIÓN LORA - RYLR998 (UART1)
+// COMUNICACIONES - UART
 // ============================================
-
 static void uart_flush_rx(uart_port_t uart) {
     uint8_t tmp[64];
     while (uart_read_bytes(uart, tmp, sizeof(tmp), pdMS_TO_TICKS(10)) > 0);
@@ -615,8 +666,6 @@ static void lora_send_command(const char *cmd) {
 }
 
 void init_lora(void) {
-    ESP_LOGI(TAG, "Inicializando LoRa...");
-    
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -626,9 +675,9 @@ void init_lora(void) {
         .source_clk = UART_SCLK_DEFAULT,
     };
     
-    ESP_ERROR_CHECK(uart_driver_install(LORA_UART_PORT, LORA_BUF_SIZE * 2, 0, 0, NULL, 0));
-    ESP_ERROR_CHECK(uart_param_config(LORA_UART_PORT, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(LORA_UART_PORT, LORA_TX_PIN, LORA_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    uart_driver_install(LORA_UART_PORT, LORA_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_param_config(LORA_UART_PORT, &uart_config);
+    uart_set_pin(LORA_UART_PORT, LORA_TX_PIN, LORA_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     
     vTaskDelay(pdMS_TO_TICKS(500));
     uart_flush_rx(LORA_UART_PORT);
@@ -656,12 +705,11 @@ void init_lora(void) {
     lora_send_command("AT+NETWORKID=18");
     uart_wait_response(LORA_UART_PORT, "+OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
-    
-    ESP_LOGI(TAG, "LoRa inicializado correctamente");
 }
 
 void lora_send_telemetry(cansat_t *data) {
-    // Convertir estructura a hex string
+    if (!lora_available) return;
+    
     char hex_payload[sizeof(cansat_t) * 2 + 1];
     uint8_t *bytes = (uint8_t *)data;
     
@@ -670,20 +718,30 @@ void lora_send_telemetry(cansat_t *data) {
     }
     hex_payload[sizeof(cansat_t) * 2] = '\0';
     
-    // Comando con terminador correcto (DENTRO del snprintf)
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "AT+SEND=0,%d,%s\r\n", (int)strlen(hex_payload), hex_payload);
+    snprintf(cmd, sizeof(cmd), "AT+SEND=0,%d,%s\r\n", (int)sizeof(cansat_t), hex_payload);
     
     uart_write_bytes(LORA_UART_PORT, cmd, strlen(cmd));
     
-    // Esperar confirmación (opcional, no bloqueante)
-    uart_wait_response(LORA_UART_PORT, "+OK", 500);
+    total_air_time_ms += AIR_TIME_PER_PACKET_MS;
+    
+    if (total_air_time_ms >= MAX_AIR_TIME_MS) {
+        lora_send_command("AT+SLEEP");
+        lora_available = false;
+    }
+}
+
+void lora_send_mission_confirm(bool success) {
+    if (!lora_available) return;
+    const char *confirm_hex = success ? "31" : "30";
+    char cmd[64];
+    snprintf(cmd, sizeof(cmd), "AT+SEND=0,1,%s\r\n", confirm_hex);
+    uart_write_bytes(LORA_UART_PORT, cmd, strlen(cmd));
 }
 
 // ============================================
-// SECCIÓN XBEE - XB3-24AUT-J (UART2)
+// XBEE
 // ============================================
-
 static void xbee_send_command(const char *cmd) {
     uart_write_bytes(XBEE_UART_PORT, cmd, strlen(cmd));
 }
@@ -704,8 +762,6 @@ static void xbee_exit_command_mode(void) {
 }
 
 void init_xbee(void) {
-    ESP_LOGI(TAG, "Inicializando XBee...");
-    
     uart_config_t uart_config = {
         .baud_rate = 9600,
         .data_bits = UART_DATA_8_BITS,
@@ -715,38 +771,32 @@ void init_xbee(void) {
         .source_clk = UART_SCLK_DEFAULT,
     };
     
-    ESP_ERROR_CHECK(uart_driver_install(XBEE_UART_PORT, XBEE_BUF_SIZE * 2, 0, 0, NULL, 0));
-    ESP_ERROR_CHECK(uart_param_config(XBEE_UART_PORT, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(XBEE_UART_PORT, XBEE_TX_PIN, XBEE_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    uart_driver_install(XBEE_UART_PORT, XBEE_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_param_config(XBEE_UART_PORT, &uart_config);
+    uart_set_pin(XBEE_UART_PORT, XBEE_TX_PIN, XBEE_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     
     vTaskDelay(pdMS_TO_TICKS(500));
     
     if (!xbee_enter_command_mode()) {
-        ESP_LOGE(TAG, "No se pudo entrar a modo comando XBee");
         return;
     }
     
-    // Resetear a valores de fábrica
     xbee_send_command("ATRE\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Configurar PAN ID
     xbee_send_command("ATID CAFE\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Configurar canal (0C = 2.410 GHz)
     xbee_send_command("ATCH 0C\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Configurar dirección origen (MY=1 para transmisor)
     xbee_send_command("ATMY 1\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Configurar dirección destino (DL=0, DH=0 = broadcast)
     xbee_send_command("ATDL 0\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -755,36 +805,33 @@ void init_xbee(void) {
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Configurar como coordinador (0 = endpoint, no coordinar)
     xbee_send_command("ATCE 0\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // CORREGIDO: Potencia de transmisión (4 = +8 dBm)
     xbee_send_command("ATPL 4\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Guardar configuración
     xbee_send_command("ATWR\r");
     uart_wait_response(XBEE_UART_PORT, "OK", 2000);
     vTaskDelay(pdMS_TO_TICKS(200));
     
-    // Salir del modo comando
     xbee_exit_command_mode();
-    
-    ESP_LOGI(TAG, "XBee inicializado correctamente");
 }
 
 void xbee_send_telemetry(cansat_t *data) {
-    // Envío binario directo (modo transparente)
     uart_write_bytes(XBEE_UART_PORT, (uint8_t *)data, sizeof(cansat_t));
 }
 
-// ============================================
-// SECCIÓN SD CARD
-// ============================================
+void xbee_send_mission_confirm(bool success) {
+    uint8_t confirm = success ? 1 : 0;
+    uart_write_bytes(XBEE_UART_PORT, &confirm, 1);
+}
 
+// ============================================
+// SD CARD
+// ============================================
 void write_to_sd(void) {
     if (!sd_ready) return;
     
@@ -798,7 +845,7 @@ void write_to_sd(void) {
     fclose(f);
 }
 
-void init_sdcard(void) {
+bool init_sdcard_with_retry(void) {
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = true,
         .max_files = 5,
@@ -819,9 +866,8 @@ void init_sdcard(void) {
     
     esp_err_t ret = spi_bus_initialize(host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Error al inicializar bus SPI: %s", esp_err_to_name(ret));
-        sd_ready = 0;
-        return;
+        sd_ready = false;
+        return false;
     }
     
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
@@ -830,19 +876,17 @@ void init_sdcard(void) {
     
     ret = esp_vfs_fat_sdspi_mount(SD_MOUNT_POINT, &host, &slot_config, &mount_config, &sdcard);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Error al montar SD: %s", esp_err_to_name(ret));
-        sd_ready = 0;
-        return;
+        sd_ready = false;
+        return false;
     }
     
-    sd_ready = 1;
-    ESP_LOGI(TAG, "SD Card montada correctamente");
+    sd_ready = true;
+    return true;
 }
 
 // ============================================
-// CONFIGURACIÓN UART GPS (UART0, solo RX)
+// UART GPS
 // ============================================
-
 void init_uart_gps(void) {
     uart_config_t uart_config = {
         .baud_rate = 9600,
@@ -853,15 +897,14 @@ void init_uart_gps(void) {
         .source_clk = UART_SCLK_DEFAULT,
     };
     
-    ESP_ERROR_CHECK(uart_driver_install(GPS_UART_PORT, GPS_BUF_SIZE * 2, 0, 0, NULL, 0));
-    ESP_ERROR_CHECK(uart_param_config(GPS_UART_PORT, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(GPS_UART_PORT, GPS_TX_PIN, GPS_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    uart_driver_install(GPS_UART_PORT, GPS_BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_param_config(GPS_UART_PORT, &uart_config);
+    uart_set_pin(GPS_UART_PORT, GPS_TX_PIN, GPS_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
 // ============================================
-// FUNCIÓN PARA LEER TODOS LOS SENSORES GY-87
+// SENSORES GY-87
 // ============================================
-
 void read_gy87_sensors(void) {
     int16_t accel[3], gyro[3], mag[3];
     
@@ -900,116 +943,111 @@ void read_gy87_sensors(void) {
         telemetry.mag[0] = telemetry.mag[1] = telemetry.mag[2] = 0;
     }
     
-    int32_t ut = bmp180_read_raw_temp();
-    if (ut > 0) {
-        temp_celsius = bmp180_calculate_temp(ut);
-        telemetry.temperature = (int16_t)(temp_celsius * 100.0f);
-    }
+    read_bmp180_sensor();
     
-    int32_t up = bmp180_read_raw_pressure(BMP180_STANDARD);
-    if (up > 0) {
-        int32_t pressure_pa = bmp180_calculate_pressure(up, BMP180_STANDARD);
-        if (pressure_pa > 0) {
-            pressure_hpa = (float)pressure_pa / 100.0f;
-            telemetry.pressure = (uint32_t)((float)pressure_pa * 10.0f);
-            
-            if (pressure_readings_count_bmp < INITIAL_READINGS_BMP) {
-                initial_pressures_bmp[pressure_readings_count_bmp] = pressure_pa;
-                pressure_readings_count_bmp++;
-                
-                if (pressure_readings_count_bmp == INITIAL_READINGS_BMP) {
-                    float sum = 0;
-                    for (int i = 0; i < INITIAL_READINGS_BMP; i++) {
-                        sum += initial_pressures_bmp[i];
-                    }
-                    ref_pressure_bmp = sum / INITIAL_READINGS_BMP;
-                }
-                altitude_bmp = 0.0f;
-                filtered_altitude_bmp = 0.0f;
-            } else {
-                update_altitude_bmp(pressure_pa);
-            }
-            
-            telemetry.altitude_gy = (int16_t)altitude_bmp;
-        }
-    }
-    
-    // Actualizar timestamp y coordenadas GPS en telemetría
     telemetry.timestamp = esp_timer_get_time() / 1000;
     telemetry.latitude = (int32_t)(last_valid_lat * 10000000.0);
     telemetry.longitude = (int32_t)(last_valid_lon * 10000000.0);
 }
 
 // ============================================
-// LOOP PRINCIPAL
+// COMANDO LISTENER TASK
 // ============================================
+static char lora_cmd_buffer[LORA_BUF_SIZE];
+static int lora_cmd_buffer_len = 0;
 
+void command_listener_task(void *pvParameters) {
+    while (1) {
+        uint8_t lora_data[LORA_BUF_SIZE];
+        int lora_len = uart_read_bytes(LORA_UART_PORT, lora_data, LORA_BUF_SIZE - 1, pdMS_TO_TICKS(10));
+        
+        if (lora_len > 0) {
+            lora_data[lora_len] = '\0';
+            
+            if (lora_cmd_buffer_len + lora_len < LORA_BUF_SIZE - 1) {
+                strcat(lora_cmd_buffer, (char*)lora_data);
+                lora_cmd_buffer_len += lora_len;
+                lora_cmd_buffer[lora_cmd_buffer_len] = '\0';
+            } else {
+                lora_cmd_buffer_len = 0;
+                lora_cmd_buffer[0] = '\0';
+            }
+            
+            if (strstr(lora_cmd_buffer, "MISSION_START") != NULL) {
+                if (!mission_mode && lora_available) {
+                    mission_mode = true;
+                    lora_send_mission_confirm(true);
+                    xbee_send_mission_confirm(true);
+                }
+                lora_cmd_buffer_len = 0;
+                lora_cmd_buffer[0] = '\0';
+            }
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+// ============================================
+// APP MAIN
+// ============================================
 void app_main(void) {
-    // ============================================
-    // INICIALIZAR SENSORES GY-87
-    // ============================================
     i2c_master_init();
     mpu6050_init();
     enable_bypass_mode();
     hmc5883l_init();
     
-    if (!bmp180_begin()) {
-        ESP_LOGE(TAG, "BMP180 initialization failed!");
-        while (1) { vTaskDelay(pdMS_TO_TICKS(1000)); }
-    }
+    init_bmp180_with_retry();
     
-    // Calibrar magnetómetro (opcional, descomentar si es necesario)
-    // calibrate_magnetometer();
+    init_uart_gps();
+    init_lora();
+    init_xbee();
     
-    // ============================================
-    // INICIALIZAR COMUNICACIONES
-    // ============================================
-    init_uart_gps();      // UART0 - GPS (solo RX)
-    init_lora();          // UART1 - LoRa
-    init_xbee();          // UART2 - XBee
+    init_sdcard_with_retry();
     
-    // ============================================
-    // INICIALIZAR SD CARD (backup local)
-    // ============================================
-    init_sdcard();
-    
-    // ============================================
-    // INICIALIZAR BUFFERS
-    // ============================================
     for (int i = 0; i < FILTER_WINDOW_SIZE; i++) {
         altitude_buffer[i] = 0.0f;
         gps_altitude_buffer[i] = 0.0f;
     }
     
-    ESP_LOGI(TAG, "System ready. Waiting for GPS fix...");
+    xTaskCreate(command_listener_task, "cmd_listener", 4096, NULL, 5, NULL);
     
-    // ============================================
-    // LOOP PRINCIPAL (100ms delay, envío cada 3s)
-    // ============================================
     while (1) {
-        // Leer GPS
         read_gps_data();
-        
-        // Leer sensores GY-87
         read_gy87_sensors();
         
-        // Backup en SD (cada 2 segundos)
-        if (gps_first_fix_received) {
-            sd_write_counter++;
-            if (sd_write_counter >= SD_WRITE_INTERVAL) {
-                write_to_sd();
-                sd_write_counter = 0;
+        sd_write_counter++;
+        if (sd_write_counter >= SD_WRITE_INTERVAL) {
+            write_to_sd();
+            sd_write_counter = 0;
+        }
+        
+        if (!sd_ready) {
+            uint32_t now = esp_timer_get_time() / 1000;
+            if (now - last_sd_retry >= SD_RETRY_INTERVAL_MS) {
+                last_sd_retry = now;
+                init_sdcard_with_retry();
             }
         }
         
-        // Enviar telemetría cada 3 segundos
+        uint32_t interval = NORMAL_INTERVAL_MS;
+        if (mission_mode && lora_available) {
+            interval = MISSION_INTERVAL_MS;
+        }
+        
         uint32_t now = esp_timer_get_time() / 1000;
-        if (now - last_telemetry_send >= TELEMETRY_INTERVAL_MS && gps_first_fix_received) {
-            lora_send_telemetry(&telemetry);
-            xbee_send_telemetry(&telemetry);
+        if (now - last_telemetry_send >= interval) {
+            if (lora_available) {
+                lora_send_telemetry(&telemetry);
+            }
+            
+            if (gps_fix) {
+                xbee_send_telemetry(&telemetry);
+            }
+            
             last_telemetry_send = now;
         }
         
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }

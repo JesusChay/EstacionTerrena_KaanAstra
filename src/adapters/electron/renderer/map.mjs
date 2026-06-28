@@ -55,7 +55,6 @@ function applyLandingPrediction(prediction) {
   const phase = typeof prediction?.phase === 'string' ? prediction.phase : 'waiting';
   const status = typeof prediction?.status === 'string' ? prediction.status : 'waiting';
   const confidence = typeof prediction?.confidence === 'string' ? prediction.confidence : 'low';
-  const windProfileSource = typeof prediction?.windProfileSource === 'string' ? prediction.windProfileSource : 'Sin perfil';
   const phaseBadge = document.getElementById('predictionPhaseBadge');
 
   phaseBadge.textContent = formatPhaseLabel(phase, status);
@@ -66,8 +65,6 @@ function applyLandingPrediction(prediction) {
   setText('predictionConfidenceValue', formatConfidenceLabel(confidence));
   setText('predictionRadiusValue', formatRadius(prediction?.uncertaintyRadiusMeters));
   setText('predictionLandingValue', formatLandingPoint(prediction?.predictedLanding));
-  setText('predictionWindSourceValue', formatWindSourceLabel(windProfileSource));
-
   if (!prediction || status === 'waiting' || !prediction.predictedLanding || !Array.isArray(prediction.estimatedTrajectory) || prediction.estimatedTrajectory.length === 0) {
     landingPredictionOverlay.clear();
     return;
@@ -153,26 +150,6 @@ function formatLandingPoint(location) {
   }
 
   return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
-}
-
-function formatWindSourceLabel(source) {
-  if (source === 'open-meteo') {
-    return 'Open-Meteo';
-  }
-
-  if (source === 'static-fallback') {
-    return 'Respaldo estatico';
-  }
-
-  if (source === 'static') {
-    return 'Perfil estatico';
-  }
-
-  if (source === 'none' || source === 'unknown') {
-    return 'Sin perfil';
-  }
-
-  return source;
 }
 
 window.api.onPayloadData((data) => {

@@ -230,10 +230,39 @@
   font-weight: 500;
 }
 
-.drift-source {
-  flex-shrink: 0;
-  font-size: 11px;
+.mission-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+#missionBtn {
+  background-color: #1f5252;
+  color: #ffffff;
+  border: 1px solid #4bc0c0;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+#missionBtn:hover {
+  background-color: #256868;
+}
+
+#missionBtn.mission-active {
+  background-color: #8b2f2f;
+  border-color: #ff6b6b;
+}
+
+#missionBtn.mission-active:hover {
+  background-color: #a63838;
+}
+
+#missionStatusText {
+  font-size: 12px;
   color: #b9d7dc;
-  text-align: left;
-  padding: 4px 2px 0;
 }

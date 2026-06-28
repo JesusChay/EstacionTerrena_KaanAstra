@@ -248,12 +248,6 @@ const altitudeChart = createAltitudeChart(
 const accelChart = createAccelChart(
   document.getElementById('accelChart').getContext('2d')
 );
-const windChart = createLineChart(
-  document.getElementById('windChart').getContext('2d'),
-  'Viento',
-  'Viento (m/s)',
-  '#00bcd4'
-);
 const velocityChart = createLineChart(
   document.getElementById('velocityChart').getContext('2d'),
   'Velocidad',
@@ -283,7 +277,6 @@ window.api.onPayloadData((data) => {
     data.accelz !== undefined ? Number.parseFloat(data.accelz) : null,
     data.atotal !== undefined ? Number.parseFloat(data.atotal) : null
   ]);
-  pushChartPoint(windChart, data.time, [data.speed !== undefined ? Number.parseFloat(data.speed) : null]);
   pushChartPoint(velocityChart, data.time, [data.velocity !== undefined ? Number.parseFloat(data.velocity) : null]);
   pushChartPoint(distanceChart, data.time, [data.distanceToReceiver !== undefined ? Number.parseFloat(data.distanceToReceiver) : null]);
 
@@ -292,7 +285,6 @@ window.api.onPayloadData((data) => {
   if (data.atotal !== undefined) document.getElementById('accelValue').textContent = `${data.atotal} g`;
   if (data.relativeAltitude !== undefined) document.getElementById('altitudeValue').textContent = `${data.relativeAltitude} m`;
   if (data.altitude !== undefined) document.getElementById('absoluteAltitudeValue').textContent = `${data.altitude} m`;
-  if (data.speed !== undefined) document.getElementById('windValue').textContent = `${data.speed} m/s`;
   if (data.velocity !== undefined) document.getElementById('velocityValue').textContent = `${data.velocity} m/s`;
   if (data.distanceToReceiver !== undefined) document.getElementById('distanceValue').textContent = `${data.distanceToReceiver} m`;
 
@@ -315,6 +307,25 @@ window.api.onSimulationStatus((data) => {
   showNotification(data.message);
 });
 
+let missionActive = false;
+const missionBtn = document.getElementById('missionBtn');
+const missionStatusText = document.getElementById('missionStatusText');
+
+missionBtn.addEventListener('click', async () => {
+  const command = missionActive ? 'MISSION_STOP' : 'MISSION_START';
+  const result = await window.api.sendCommand(command);
+  if (!result.success) {
+    showNotification(`Error: ${result.message}`);
+  }
+});
+
+window.api.onMissionStatus((status) => {
+  missionActive = status.active === true;
+  missionBtn.textContent = missionActive ? 'Detener Mision' : 'Iniciar Mision';
+  missionStatusText.textContent = status.message || (missionActive ? 'Mision activa' : 'Modo normal (3s)');
+  missionBtn.className = missionActive ? 'mission-active' : '';
+});
+
 window.api.onReceiverLocation((location) => {
   applyReceiverLocationState(location);
 });
@@ -333,13 +344,6 @@ function updateDriftDirCell(elementId, value) {
   }
 }
 
-function formatWindSourceLabel(source) {
-  if (source === 'open-meteo') return 'Open-Meteo';
-  if (source === 'static-fallback') return 'Respaldo estatico';
-  if (source === 'static') return 'Perfil estatico';
-  return 'Sin perfil';
-}
-
 window.api.onLandingPrediction((prediction) => {
   updateDriftCell('hVelNorth', prediction?.horizontalVelocityVector?.northMps);
   updateDriftCell('hVelEast', prediction?.horizontalVelocityVector?.eastMps);
@@ -350,16 +354,6 @@ window.api.onLandingPrediction((prediction) => {
   updateDriftCell('blendEast', prediction?.blendedDriftVector?.eastMps);
   updateDriftCell('blendSpeed', prediction?.blendedDriftVector?.speedMps);
   updateDriftDirCell('blendDir', prediction?.blendedDriftVector?.directionDeg);
-
-  updateDriftCell('windNorth', prediction?.windVector?.northMps);
-  updateDriftCell('windEast', prediction?.windVector?.eastMps);
-  updateDriftCell('windSpeed', prediction?.windVector?.speedMps);
-  updateDriftDirCell('windDir', prediction?.windVector?.directionDeg);
-
-  const windSourceEl = document.getElementById('driftWindSource');
-  if (windSourceEl) {
-    windSourceEl.textContent = formatWindSourceLabel(prediction?.windProfileSource);
-  }
 });
 
 async function initializeDashboard() {

@@ -1,8 +1,8 @@
 const { createTelemetrySampleDto } = require('@kaan-astra/telemetry-contracts');
 
 function toTelemetrySampleDto(processedTelemetry, {
-    locale = 'fr-FR',
-    timeZone = 'Europe/Paris'
+    locale = 'en-GB',
+    timeZone = 'Europe/London'
 } = {}) {
     if (!processedTelemetry) {
         return null;

@@ -11,7 +11,6 @@ function buildDesktopReportArtifacts({ samples, isSimulation, generatedAt = new 
 
     const headers = [
         'Tiempo',
-        'Velocidad del viento (m/s)',
         'Temperatura (°C)',
         'Presion (hPa)',
         'Aceleracion X (g)',
@@ -35,7 +34,6 @@ function buildDesktopReportArtifacts({ samples, isSimulation, generatedAt = new 
 
     const rows = recentSamples.map((sample) => ([
         sample.time || '',
-        sample.speed || '',
         sample.temperature || '',
         sample.pressure || '',
         sample.accelx || '',
@@ -75,7 +73,6 @@ function buildDesktopReportArtifacts({ samples, isSimulation, generatedAt = new 
 function buildAnalysisReport({ samples, generatedAt, isSimulation }) {
     const duration = samples.length * 0.5;
     const stats = {
-        speed: calculateStats(samples, 'speed'),
         temperature: calculateStats(samples, 'temperature'),
         pressure: calculateStats(samples, 'pressure'),
         atotal: calculateStats(samples, 'atotal'),
@@ -86,20 +83,19 @@ function buildAnalysisReport({ samples, generatedAt, isSimulation }) {
     };
 
     let text = 'Reporte de Analisis CanSat\n';
-    text += `Generado el: ${generatedAt.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}\n`;
+    text += `Generado el: ${generatedAt.toLocaleString('en-GB', { timeZone: 'Europe/London' })}\n`;
     text += `Modo: ${isSimulation ? 'Simulacion' : 'Datos Reales'}\n\n`;
     text += 'Resumen General:\n';
     text += `- Duracion total estimada: ${duration.toFixed(2)} segundos\n`;
     text += `- Numero de muestras: ${samples.length}\n\n`;
     text += 'Estadisticas de Magnitudes:\n\n';
-    text += buildStatBlock('1. Velocidad del Viento (m/s)', stats.speed);
-    text += buildStatBlock('2. Temperatura (°C)', stats.temperature);
-    text += buildStatBlock('3. Presion (hPa)', stats.pressure);
-    text += buildStatBlock('4. Aceleracion Total (g)', stats.atotal);
-    text += buildStatBlock('6. Altitud (m)', stats.altitude);
-    text += buildStatBlock('7. Altitud Alternativa (m)', stats.relativeAltitude);
-    text += buildStatBlock('8. Velocidad de Desplazamiento (m/s)', stats.velocity);
-    text += buildStatBlock('9. Velocidad Vertical (m/s)', stats.velocityZ, false);
+    text += buildStatBlock('1. Temperatura (°C)', stats.temperature);
+    text += buildStatBlock('2. Presion (hPa)', stats.pressure);
+    text += buildStatBlock('3. Aceleracion Total (g)', stats.atotal);
+    text += buildStatBlock('4. Altitud (m)', stats.altitude);
+    text += buildStatBlock('5. Altitud Alternativa (m)', stats.relativeAltitude);
+    text += buildStatBlock('6. Velocidad de Desplazamiento (m/s)', stats.velocity);
+    text += buildStatBlock('7. Velocidad Vertical (m/s)', stats.velocityZ, false);
     return text;
 }
 

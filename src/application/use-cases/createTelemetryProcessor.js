@@ -24,6 +24,7 @@ function createTelemetryProcessor({
     };
     let payloadKalman = null;
     let payloadOrientation = new Quaternion(1, 0, 0, 0);
+    let peakAltitude = null;
 
     function process(message) {
         let rawParsed;
@@ -87,8 +88,6 @@ function createTelemetryProcessor({
             receiverLatitude,
             receiverLongitude
         } = payloadSensors;
-        const decouplingStatus = payloadSensors.decouplingStatus === true;
-        const activeSourceChannel = payloadSensors.sourceChannel;
 
         let correctedAccelx;
         let correctedAccely;
@@ -147,6 +146,23 @@ function createTelemetryProcessor({
         }
 
         lastPayloadTime = currentTime;
+
+        const currentAltitude = Number.isFinite(altitudeState.relativeAltitude)
+            ? altitudeState.relativeAltitude
+            : (Number.isFinite(altitude) ? altitude : null);
+
+        if (currentAltitude !== null) {
+            if (peakAltitude === null || currentAltitude > peakAltitude) {
+                peakAltitude = currentAltitude;
+            }
+
+            if (peakAltitude !== null && currentAltitude <= peakAltitude - 30) {
+                setDecouplingStatus(true);
+            }
+        }
+
+        const decouplingStatus = payloadSensors.decouplingStatus === true;
+        const activeSourceChannel = payloadSensors.sourceChannel;
 
         const atotal = (Number.isFinite(correctedAccelx) && Number.isFinite(correctedAccely) && Number.isFinite(correctedAccelz))
             ? Math.sqrt(correctedAccelx * correctedAccelx + correctedAccely * correctedAccely + correctedAccelz * correctedAccelz)

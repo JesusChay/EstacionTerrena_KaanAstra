@@ -24,6 +24,10 @@
       <button id="refreshLocationBtn" type="button">Reintentar ubicacion</button>
       <button id="openLocationSettingsBtn" type="button">Abrir configuracion de ubicacion</button>
     </div>
+    <div class="mission-control">
+      <button id="missionBtn" type="button">Iniciar Mision</button>
+      <span id="missionStatusText">Modo normal (3s)</span>
+    </div>
   </div>
 
   <div class="banner">
@@ -66,12 +70,6 @@
     </div>
 
     <div class="panel">
-      <h2>Viento</h2>
-      <canvas id="windChart"></canvas>
-      <div class="value-label" id="windValue">0.00 m/s</div>
-    </div>
-
-    <div class="panel">
       <h2>Velocidad</h2>
       <canvas id="velocityChart"></canvas>
       <div class="value-label"><span id="velocityValue">0.00 m/s</span></div>
@@ -111,17 +109,9 @@
               <td id="blendSpeed">--</td>
               <td id="blendDir">--</td>
             </tr>
-            <tr>
-              <td>Viento modelado</td>
-              <td id="windNorth">--</td>
-              <td id="windEast">--</td>
-              <td id="windSpeed">--</td>
-              <td id="windDir">--</td>
-            </tr>
           </tbody>
         </table>
       </div>
-      <div class="drift-source">Fuente: <span id="driftWindSource">--</span></div>
     </div>
   </div>
 

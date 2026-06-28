@@ -7,10 +7,12 @@ contextBridge.exposeInMainWorld('api', {
   onError: (callback) => ipcRenderer.on('error', (event, message) => callback(message)),
   onReportGenerated: (callback) => ipcRenderer.on('report-generated', (event, data) => callback(data)),
   onSimulationStatus: (callback) => ipcRenderer.on('simulation-status', (event, data) => callback(data)),
+  onMissionStatus: (callback) => ipcRenderer.on('mission-status', (event, data) => callback(data)),
   generateReport: () => ipcRenderer.send('generate-report'),
   listSerialPorts: () => ipcRenderer.invoke('list-serial-ports'),
   openLocationSettings: () => ipcRenderer.invoke('open-location-settings'),
   refreshReceiverLocation: () => ipcRenderer.invoke('refresh-receiver-location'),
   setSerialPort: (portName) => ipcRenderer.invoke('set-serial-port', portName),
-  setReceiverLocation: (coords) => ipcRenderer.invoke('set-receiver-location', coords)
+  setReceiverLocation: (coords) => ipcRenderer.invoke('set-receiver-location', coords),
+  sendCommand: (command) => ipcRenderer.invoke('send-command', command)
 });

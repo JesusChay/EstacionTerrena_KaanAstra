@@ -27,6 +27,7 @@ let payloadDataLog = [];
 let latestLandingPrediction = null;
 let latestLandingPredictionDto = null;
 let simulationInterval = null;
+let missionMode = false;
 let lastLoRaEmitTime = 0;
 const TELEMETRY_DEDUP_MS = 3000;
 
@@ -473,6 +474,46 @@ ipcMain.handle('refresh-receiver-location', async () => {
     return { success: true };
 });
 
+ipcMain.handle('send-command', async (event, command) => {
+    if (simulationInterval) {
+        if (command === 'MISSION_START') {
+            missionMode = true;
+            clearInterval(simulationInterval);
+            simulationInterval = setInterval(simulateData, 500);
+            console.log('🎯 Modo mision activado (simulacion)');
+            broadcastMissionStatus({ active: true, message: 'Mision activa (simulacion)' });
+        } else if (command === 'MISSION_STOP') {
+            missionMode = false;
+            clearInterval(simulationInterval);
+            simulationInterval = setInterval(simulateData, 500);
+            console.log('⏹ Modo normal restaurado (simulacion)');
+            broadcastMissionStatus({ active: false, message: 'Modo normal (3s)' });
+        }
+        return { success: true };
+    }
+
+    if (!serialPort) {
+        return { success: false, message: 'No hay puerto serial conectado' };
+    }
+
+    serialPort.write(command + '\n', (err) => {
+        if (err) {
+            console.error('❌ Error al enviar comando:', err.message);
+            sendToWindow(dashboardWindow, 'error', 'Error al enviar comando: ' + err.message);
+        }
+    });
+
+    if (command === 'MISSION_START') {
+        missionMode = true;
+        broadcastMissionStatus({ active: true, message: 'Mision iniciada — esperando confirmacion...' });
+    } else if (command === 'MISSION_STOP') {
+        missionMode = false;
+        broadcastMissionStatus({ active: false, message: 'Mision detenida' });
+    }
+
+    return { success: true };
+});
+
 function processPayloadData(message) {
     const processedTelemetry = telemetryProcessor.process(message);
     if (!processedTelemetry) {
@@ -527,6 +568,12 @@ function broadcastReceiverLocationState(receiverLocationState) {
     latestReceiverLocationState = { ...receiverLocationState };
     [dashboardWindow, mapWindow, model3dWindow].forEach((window) => {
         sendToWindow(window, LOCATION_STATUS_CHANNEL, latestReceiverLocationState);
+    });
+}
+
+function broadcastMissionStatus(status) {
+    [dashboardWindow, mapWindow, model3dWindow].forEach((window) => {
+        sendToWindow(window, 'mission-status', status);
     });
 }
 
