@@ -26,7 +26,7 @@ export function initMap() {
 export function updateMap(data) {
   if (!map) initMap();
 
-  const { rocket, ground, flight, signal, wind } = data;
+  const { rocket, ground, flight } = data;
 
   if (rocket && Number.isFinite(rocket.latitude) && Number.isFinite(rocket.longitude)) {
     const rLatLng = [rocket.latitude, rocket.longitude];
@@ -77,16 +77,6 @@ export function updateMap(data) {
     setText("mapFlightStatus", flight.status || "--");
     const alarmText = flight.alarm ? "ON" : "OFF";
     setText("mapAlarm", alarmText);
-  }
-
-  if (signal) {
-    const rssi = Number.isFinite(signal.rssi) ? signal.rssi + " dBm" : "--";
-    const snr = Number.isFinite(signal.snr) ? signal.snr + " dB" : "--";
-    setText("mapSignal", "RSSI: " + rssi + " | SNR: " + snr);
-  }
-
-  if (wind && Number.isFinite(wind.velocity)) {
-    setText("mapWind", wind.velocity.toFixed(1) + " m/s");
   }
 }
 

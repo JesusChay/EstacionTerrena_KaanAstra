@@ -95,37 +95,6 @@ static esp_timer_handle_t alarm_timer = NULL;
 static bool buzzer_active = false;
 
 // ============================================
-// DECLARACION DE FUNCIONES
-// ============================================
-// GPS
-static float moving_average(float new_val);
-static float nmea_to_decimal(char *coord, char dir);
-static void process_gpgga(char *sentence);
-void init_gps(void);
-void gps_task(void *pvParameters);
-
-// LoRa
-static void uart_flush_rx(uart_port_t uart);
-static bool uart_wait_response(uart_port_t uart, const char *expected, int timeout_ms);
-static void lora_send_command(const char *cmd);
-void init_lora(void);
-bool lora_send_telemetry(rocket_tracker_t *data);
-
-// Buzzer
-static void alarm_pattern_callback(void *arg);
-void init_buzzer(void);
-void start_alarm(void);
-void stop_alarm(void);
-bool buzzer_is_active(void);
-
-// Logica de vuelo
-static void update_flight_state(float altitude);
-static void control_buzzer(void);
-
-// Simulacion
-static void simulate_flight(void);
-
-// ============================================
 // FUNCIONES DEL GPS
 // ============================================
 
@@ -180,6 +149,9 @@ static void process_gpgga(char *sentence) {
 
     if (fix == 0) {
         gps_fix = false;
+        gps_latitude = 0.0;
+        gps_longitude = 0.0;
+        gps_altitude = 0.0;
         return;
     }
 
@@ -314,6 +286,7 @@ void init_lora(void) {
     uart_wait_response(LORA_UART_PORT, "+OK", 3000);
     vTaskDelay(pdMS_TO_TICKS(1000));
 
+    // Mismos parámetros que el CanSat
     lora_send_command("AT+BAND=869500000");
     uart_wait_response(LORA_UART_PORT, "+OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -326,11 +299,13 @@ void init_lora(void) {
     uart_wait_response(LORA_UART_PORT, "+OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    lora_send_command("AT+ADDRESS=0");
+    // Network ID diferente al CanSat (20 vs 18)
+    lora_send_command("AT+NETWORKID=20");
     uart_wait_response(LORA_UART_PORT, "+OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    lora_send_command("AT+NETWORKID=18");
+    // Dirección del transmisor
+    lora_send_command("AT+ADDRESS=1");
     uart_wait_response(LORA_UART_PORT, "+OK", 1000);
     vTaskDelay(pdMS_TO_TICKS(100));
 }
@@ -348,8 +323,9 @@ bool lora_send_telemetry(rocket_tracker_t *data) {
         uart_flush_rx(LORA_UART_PORT);
 
         char cmd[256];
-        snprintf(cmd, sizeof(cmd), "AT+SEND=0,%d,%s\r\n", 
-                 (int)strlen(hex_payload), hex_payload);
+        // Envía a dirección 2 (GROUND_TRACKER)
+        snprintf(cmd, sizeof(cmd), "AT+SEND=2,%d,%s\r\n", 
+                 (int)sizeof(rocket_tracker_t), hex_payload);
 
         uart_write_bytes(LORA_UART_PORT, cmd, strlen(cmd));
 
@@ -428,7 +404,6 @@ static void update_flight_state(float altitude) {
             if (altitude > ALTITUDE_TAKEOFF_THRESHOLD) {
                 flight_state = STATE_FLYING;
                 has_flown = true;
-                ESP_LOGI(TAG, "TAKEOFF at %.2f m", altitude);
             }
             break;
 
@@ -436,7 +411,6 @@ static void update_flight_state(float altitude) {
             if (altitude < ALTITUDE_LANDING_THRESHOLD) {
                 flight_state = STATE_LANDED;
                 landing_time_ms = esp_timer_get_time() / 1000;
-                ESP_LOGI(TAG, "LANDING at %.2f m", altitude);
             }
             break;
 
@@ -452,48 +426,8 @@ static void control_buzzer(void) {
         if (!alarm_started && (now - landing_time_ms >= ALARM_DELAY_SECONDS * 1000)) {
             start_alarm();
             alarm_started = true;
-            ESP_LOGI(TAG, "ALARM ACTIVATED");
-        }
-    } else {
-        if (alarm_started) {
-            stop_alarm();
-            alarm_started = false;
         }
     }
-}
-
-// ============================================
-// SIMULACION DE VUELO (COMENTADA POR DEFECTO)
-// ============================================
-
-static void simulate_flight(void) {
-    static float sim_altitude = 0.0f;
-    static float sim_latitude = 40.4203f;
-    static float sim_longitude = -3.7437f;
-    static int phase = 0;
-    static uint32_t last_update = 0;
-    
-    uint32_t now = esp_timer_get_time() / 1000;
-    
-    if (now - last_update < 100) return;
-    last_update = now;
-    
-    if (phase == 0) {
-        sim_altitude += 5.2f;
-        if (sim_altitude >= 520.0f) {
-            phase = 1;
-        }
-    } else {
-        sim_altitude -= 3.46f;
-        if (sim_altitude < 0) {
-            sim_altitude = 0;
-        }
-    }
-    
-    gps_latitude = sim_latitude + (rand() % 100 - 50) * 0.000001f;
-    gps_longitude = sim_longitude + (rand() % 100 - 50) * 0.000001f;
-    gps_altitude = sim_altitude;
-    gps_fix = true;
 }
 
 // ============================================
@@ -501,8 +435,6 @@ static void simulate_flight(void) {
 // ============================================
 
 void app_main(void) {
-    ESP_LOGI(TAG, "=== ROCKET TRACKER INIT ===");
-
     init_gps();
     init_lora();
     init_buzzer();
@@ -511,19 +443,11 @@ void app_main(void) {
 
     rocket_tracker_t payload;
     uint32_t last_send_time = 0;
-    int send_counter = 0;
 
     vTaskDelay(pdMS_TO_TICKS(2000));
 
-    ESP_LOGI(TAG, "System ready");
-
     while (1) {
         uint32_t now = esp_timer_get_time() / 1000;
-
-        // ============================================
-        // SIMULACION DE VUELO (DESCOMENTAR PARA PROBAR)
-        // ============================================
-        //simulate_flight();
 
         // ============================================
         // LOGICA DE VUELO
@@ -532,36 +456,20 @@ void app_main(void) {
         control_buzzer();
 
         // ============================================
-        // ENVIO POR LORA
+        // ENVIO POR LORA (cada 3 segundos)
         // ============================================
         if (now - last_send_time >= SEND_INTERVAL_MS) {
             last_send_time = now;
 
-            if (gps_fix) {
-                send_counter++;
+            // Siempre envía, incluso sin fix (envía ceros)
+            payload.timestamp = now;
+            payload.altitude = (int32_t)(gps_altitude * 100);
+            payload.latitude = (int32_t)(gps_latitude * 10000000);
+            payload.longitude = (int32_t)(gps_longitude * 10000000);
+            payload.flight_status = (uint8_t)flight_state;
+            payload.alarm_active = (flight_state == STATE_LANDED && alarm_started) ? 1 : 0;
 
-                payload.timestamp = now;
-                payload.altitude = (int32_t)(gps_altitude * 100);
-                payload.latitude = (int32_t)(gps_latitude * 10000000);
-                payload.longitude = (int32_t)(gps_longitude * 10000000);
-                payload.flight_status = (uint8_t)flight_state;
-                payload.alarm_active = (flight_state == STATE_LANDED && alarm_started) ? 1 : 0;
-
-                // Formato de salida limpio: latitude, longitude, altitude, status, alarm, timestamp
-                ESP_LOGI(TAG, "%.6f, %.6f, %.2f, %d, %d, %lu",
-                         gps_latitude,
-                         gps_longitude,
-                         gps_altitude,
-                         flight_state,
-                         payload.alarm_active,
-                         now);
-
-                bool success = lora_send_telemetry(&payload);
-                
-                if (!success) {
-                    ESP_LOGE(TAG, "LORA FAILED");
-                }
-            }
+            lora_send_telemetry(&payload);
         }
 
         vTaskDelay(pdMS_TO_TICKS(100));

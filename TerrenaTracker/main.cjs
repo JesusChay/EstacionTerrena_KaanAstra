@@ -9,8 +9,6 @@ let serialPort = null;
 let parser = null;
 let simulationInterval = null;
 
-const COMPASS_DIRECTIONS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-
 function createWindow() {
   win = new BrowserWindow({
     width: 1200,
@@ -103,19 +101,15 @@ function startSimulation() {
       },
       signal: {
         timestamp: Date.now(),
-        rssi: -70 - Math.floor(Math.random() * 30),
-        snr: Math.floor(Math.random() * 15) + 5
+        rssi: null,
+        snr: null
       },
       ground: {
         latitude: SIM_LAT,
         longitude: SIM_LON
       },
-      wind: {
-        velocity: Math.random() * 8 + 2
-      },
-      compass: {
-        direction: COMPASS_DIRECTIONS[Math.floor(Math.random() * 16)]
-      }
+      wind: null,
+      compass: null
     };
 
     sendPayloadData(data);

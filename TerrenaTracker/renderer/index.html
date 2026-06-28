@@ -10,10 +10,6 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "../../node_modules/three/build/three.module.js",
-        "three/addons/": "../../node_modules/three/examples/jsm/",
-        "chart.js/auto": "../../node_modules/chart.js/auto/auto.js",
-        "@kurkle/color": "../../node_modules/@kurkle/color/dist/color.esm.js",
         "leaflet": "../node_modules/leaflet/dist/leaflet-src.esm.js"
       }
     }
@@ -33,69 +29,30 @@
     </div>
   </header>
 
-  <nav class="tab-bar">
-    <button class="tab-button is-active" data-tab="dashboard">Dashboard</button>
-    <button class="tab-button" data-tab="map">Mapa</button>
-  </nav>
-
-  <div class="app-layout">
-    <section class="tab-panel is-active" id="panel-dashboard">
-      <div class="model3d-area">
-        <div class="panel-header">
-          <h2>Modelo 3D</h2>
-          <span class="chip chip-veleta">Veleta</span>
-        </div>
-        <div id="model3d-container"></div>
+  <div class="map-container">
+    <div id="map"></div>
+    <div class="map-info-panel">
+      <div class="map-info-row">
+        <span class="map-info-label">Cohete:</span>
+        <span class="map-info-value" id="mapRocketCoords">--</span>
       </div>
-      <div class="sensor-column">
-        <div class="panel">
-          <h2>Magnetómetro</h2>
-          <canvas id="magChart"></canvas>
-          <div class="value-label" id="magValue">Heading: --° (--) | Campo: -- µT</div>
-        </div>
-        <div class="panel">
-          <h2>Sensor Viento Rev C</h2>
-          <canvas id="windChart"></canvas>
-          <div class="value-label" id="windValue">Vel: -- m/s | Dir: --° --</div>
-        </div>
+      <div class="map-info-row">
+        <span class="map-info-label">Altitud:</span>
+        <span class="map-info-value" id="mapRocketAlt">--</span>
       </div>
-    </section>
-
-    <section class="tab-panel" id="panel-map">
-      <div class="map-container">
-        <div id="map"></div>
-        <div class="map-info-panel">
-          <div class="map-info-row">
-            <span class="map-info-label">Cohete:</span>
-            <span class="map-info-value" id="mapRocketCoords">--</span>
-          </div>
-          <div class="map-info-row">
-            <span class="map-info-label">Altitud:</span>
-            <span class="map-info-value" id="mapRocketAlt">--</span>
-          </div>
-          <div class="map-info-row">
-            <span class="map-info-label">Estado:</span>
-            <span class="map-info-value" id="mapFlightStatus">--</span>
-          </div>
-          <div class="map-info-row">
-            <span class="map-info-label">Alarma:</span>
-            <span class="map-info-value" id="mapAlarm">--</span>
-          </div>
-          <div class="map-info-row">
-            <span class="map-info-label">Señal:</span>
-            <span class="map-info-value" id="mapSignal">--</span>
-          </div>
-          <div class="map-info-row">
-            <span class="map-info-label">Estación:</span>
-            <span class="map-info-value" id="mapGroundCoords">--</span>
-          </div>
-          <div class="map-info-row">
-            <span class="map-info-label">Viento:</span>
-            <span class="map-info-value" id="mapWind">--</span>
-          </div>
-        </div>
+      <div class="map-info-row">
+        <span class="map-info-label">Estado:</span>
+        <span class="map-info-value" id="mapFlightStatus">--</span>
       </div>
-    </section>
+      <div class="map-info-row">
+        <span class="map-info-label">Alarma:</span>
+        <span class="map-info-value" id="mapAlarm">--</span>
+      </div>
+      <div class="map-info-row">
+        <span class="map-info-label">Estación:</span>
+        <span class="map-info-value" id="mapGroundCoords">--</span>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./app.mjs"></script>

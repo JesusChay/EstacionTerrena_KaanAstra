@@ -1,4 +1,6 @@
-const RECEIVER_FIELD_COUNT = 12;
+const RECEIVER_FIELD_COUNT = 8;
+
+const FLIGHT_STATUS_MAP = { 0: "IDLE", 1: "FLYING", 2: "LANDED" };
 
 function stripEspLogPrefix(line) {
   const cleaned = line
@@ -23,15 +25,11 @@ function parseReceiverCSV(line) {
   const rocketAlt = parseFloat(parts[2]);
   if (!Number.isFinite(rocketLat) || !Number.isFinite(rocketLon)) return null;
 
-  const flightStatus = parts[3] || '';
-  const alarmActive = parts[4] === 'ON' || parts[4] === '1';
+  const flightStatusNum = parseInt(parts[3], 10);
+  const alarmActive = parts[4] === '1';
   const timestamp = parseInt(parts[5], 10);
-  const rssi = parseInt(parts[6], 10);
-  const snr = parseInt(parts[7], 10);
-  const groundLat = parseFloat(parts[8]);
-  const groundLon = parseFloat(parts[9]);
-  const windVelocity = parseFloat(parts[10]);
-  const compassDir = parts[11] || '';
+  const groundLat = parseFloat(parts[6]);
+  const groundLon = parseFloat(parts[7]);
 
   return {
     rocket: {
@@ -40,24 +38,20 @@ function parseReceiverCSV(line) {
       altitude: Number.isFinite(rocketAlt) ? rocketAlt : null
     },
     flight: {
-      status: flightStatus,
+      status: FLIGHT_STATUS_MAP[flightStatusNum] || "UNKNOWN",
       alarm: alarmActive
     },
     signal: {
       timestamp: Number.isFinite(timestamp) ? timestamp : null,
-      rssi: Number.isFinite(rssi) ? rssi : null,
-      snr: Number.isFinite(snr) ? snr : null
+      rssi: null,
+      snr: null
     },
     ground: {
       latitude: Number.isFinite(groundLat) ? groundLat : null,
       longitude: Number.isFinite(groundLon) ? groundLon : null
     },
-    wind: {
-      velocity: Number.isFinite(windVelocity) ? windVelocity : null
-    },
-    compass: {
-      direction: compassDir
-    }
+    wind: null,
+    compass: null
   };
 }
 
