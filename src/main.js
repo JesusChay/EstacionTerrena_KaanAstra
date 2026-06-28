@@ -57,6 +57,8 @@ let latestReceiverLocationState = {
     message: 'buscando ubicacion del sistema...'
 };
 
+const GROUND_GPS_PATH = path.join(__dirname, '..', 'ground-gps.json');
+
 function loadDotenv() {
     try {
         const envPath = path.join(__dirname, '..', '.env');
@@ -313,9 +315,35 @@ function createWindows() {
     });
 }
 
+function initGroundGpsWatcher() {
+    function readAndApply() {
+        try {
+            const raw = fs.readFileSync(GROUND_GPS_PATH, 'utf8');
+            const coords = JSON.parse(raw);
+            if (Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude)
+                && (coords.latitude !== 0 || coords.longitude !== 0)) {
+                telemetryProcessor.setReceiverLocation({
+                    latitude: coords.latitude,
+                    longitude: coords.longitude
+                });
+                handleSystemReceiverLocation({
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    accuracy: 5,
+                    fromFallback: false
+                });
+            }
+        } catch (_) {}
+    }
+
+    readAndApply();
+    fs.watchFile(GROUND_GPS_PATH, { interval: 1000 }, readAndApply);
+}
+
 app.whenReady().then(() => {
     createWindows();
     receiverLocationTracker.start();
+    initGroundGpsWatcher();
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindows();
     });

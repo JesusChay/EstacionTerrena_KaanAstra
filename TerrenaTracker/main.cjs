@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const { SerialPort } = require("serialport");
 const { ReadlineParser } = require("@serialport/parser-readline");
 const { parseReceiverCSV, isReceiverLine } = require("./src/infrastructure/receiverTelemetryParser.cjs");
@@ -22,7 +23,25 @@ function createWindow() {
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
+function writeGroundGps(data) {
+  if (data && data.ground && Number.isFinite(data.ground.latitude)
+      && Number.isFinite(data.ground.longitude)
+      && (data.ground.latitude !== 0 || data.ground.longitude !== 0)) {
+    try {
+      fs.writeFileSync(
+        path.join(__dirname, "..", "ground-gps.json"),
+        JSON.stringify({
+          latitude: data.ground.latitude,
+          longitude: data.ground.longitude,
+          timestamp: Date.now()
+        })
+      );
+    } catch (_) {}
+  }
+}
+
 function sendPayloadData(data) {
+  writeGroundGps(data);
   if (win && !win.isDestroyed()) {
     win.webContents.send("payload-data", data);
   }
