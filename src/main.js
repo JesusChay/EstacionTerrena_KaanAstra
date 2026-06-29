@@ -19,6 +19,7 @@ const { createOpenMeteoClient } = require('./infrastructure/weather/createOpenMe
 const { createOpenMeteoWindProfileProvider } = require('./infrastructure/weather/createOpenMeteoWindProfileProvider');
 const { createDesktopReportWriter } = require('./infrastructure/reporting/createDesktopReportWriter');
 const { createStaticWindProfileProvider } = require('./infrastructure/weather/createStaticWindProfileProvider');
+const { calculateDistance } = require('./domain/telemetry/telemetryMath');
 
 let dashboardWindow, mapWindow, model3dWindow;
 let serialPort, parser;
@@ -480,6 +481,18 @@ function processPayloadData(message) {
 
     if (channel === 'lora') {
         lastLoRaEmitTime = now;
+    }
+
+    const recLoc = latestReceiverLocationState;
+    if (Number.isFinite(recLoc.latitude) && Number.isFinite(recLoc.longitude)) {
+        processedTelemetry.receiverLatitude = recLoc.latitude;
+        processedTelemetry.receiverLongitude = recLoc.longitude;
+        if (Number.isFinite(processedTelemetry.latitude) && Number.isFinite(processedTelemetry.longitude)) {
+            processedTelemetry.distanceToReceiver = calculateDistance(
+                recLoc.latitude, recLoc.longitude,
+                processedTelemetry.latitude, processedTelemetry.longitude
+            );
+        }
     }
 
     latestLandingPrediction = landingPredictionService.update(processedTelemetry);

@@ -54,9 +54,11 @@ test('createTelemetryProcessor applies receiver location updates to future paylo
   assert.equal(processor.setReceiverLocation({ latitude: 21.1234567, longitude: -88.7654321 }), true);
 
   const processedTelemetry = processor.process(LORA_LINE);
-  assert.equal(processedTelemetry.receiverLatitude, 21.1234567);
-  assert.equal(processedTelemetry.receiverLongitude, -88.7654321);
-  assert.equal(Number.isFinite(processedTelemetry.distanceToReceiver), true);
+  assert.equal(processedTelemetry.receiverLatitude, undefined);
+  assert.equal(processedTelemetry.receiverLongitude, undefined);
+  assert.equal(processedTelemetry.distanceToReceiver, undefined);
+  assert.equal(processor.getReceiverLocation().latitude, 21.1234567);
+  assert.equal(processor.getReceiverLocation().longitude, -88.7654321);
 });
 
 test('createTelemetryProcessor keeps decoupling state after relay activation event', () => {

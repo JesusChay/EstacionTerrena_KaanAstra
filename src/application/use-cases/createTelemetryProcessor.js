@@ -93,9 +93,7 @@ function createTelemetryProcessor({
             magz,
             altitude,
             latitude,
-            longitude,
-            receiverLatitude,
-            receiverLongitude
+            longitude
         } = payloadSensors;
 
         let correctedAccelx;
@@ -121,11 +119,6 @@ function createTelemetryProcessor({
                 velocity = deltaTime > 0 ? distance / deltaTime : 0;
             }
             lastPayloadPosition = { latitude, longitude };
-        }
-
-        let distanceToReceiver = payloadSensors.distanceToReceiver;
-        if (Number.isFinite(latitude) && Number.isFinite(longitude) && Number.isFinite(receiverLatitude) && Number.isFinite(receiverLongitude)) {
-            distanceToReceiver = calculateDistance(receiverLatitude, receiverLongitude, latitude, longitude);
         }
 
         const altitudeState = updateAltitudeState({
@@ -195,9 +188,6 @@ function createTelemetryProcessor({
             altitude,
             latitude,
             longitude,
-            receiverLatitude,
-            receiverLongitude,
-            distanceToReceiver,
             velocity,
             velocityZ: altitudeState.velocityZ,
             relativeAltitude: altitudeState.relativeAltitude,

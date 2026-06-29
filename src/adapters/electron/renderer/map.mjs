@@ -173,10 +173,6 @@ window.api.onPayloadData((data) => {
       firstValidPayloadCoord = true;
     }
   }
-
-  const receiverLatitude = Number.parseFloat(data.receiverLatitude);
-  const receiverLongitude = Number.parseFloat(data.receiverLongitude);
-  updateReceiverMarker(receiverLatitude, receiverLongitude);
 });
 
 window.api.onReceiverLocation((location) => {
