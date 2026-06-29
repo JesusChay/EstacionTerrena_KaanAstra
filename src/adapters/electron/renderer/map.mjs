@@ -154,7 +154,7 @@ function formatLandingPoint(location) {
 
 window.api.onPayloadData((data) => {
   const coords = [Number.parseFloat(data.latitude), Number.parseFloat(data.longitude)];
-  if (!Number.isNaN(coords[0]) && !Number.isNaN(coords[1]) && !(coords[0] === 0 && coords[1] === 0)) {
+  if (!Number.isNaN(coords[0]) && !Number.isNaN(coords[1]) && coords[0] !== 0 && coords[1] !== 0) {
     payloadPathCoordinates.push(coords);
     payloadPath.setLatLngs(payloadPathCoordinates);
     if (payloadMarker) {

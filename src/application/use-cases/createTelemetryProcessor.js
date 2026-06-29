@@ -67,6 +67,15 @@ function createTelemetryProcessor({
             })
         };
 
+        const gpsLat = payloadSensors.latitude;
+        const gpsLon = payloadSensors.longitude;
+        const hasUsableGpsFix = Number.isFinite(gpsLat) && Number.isFinite(gpsLon) && gpsLat !== 0 && gpsLon !== 0;
+
+        if (!hasUsableGpsFix && lastPayloadPosition) {
+            payloadSensors.latitude = lastPayloadPosition.latitude;
+            payloadSensors.longitude = lastPayloadPosition.longitude;
+        }
+
         const currentTime = now();
 
         const {
