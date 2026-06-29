@@ -47,10 +47,25 @@ function parseTerrenaFormat(line) {
   return parsed;
 }
 
+function parseGroundStationFormat(line) {
+  const match = line.match(/^(XBEE|LORA),(\d+),(.+)$/i);
+  if (!match) return null;
+
+  const sourceChannel = match[1].toLowerCase();
+  const parsed = parseCSV(match[3], TERRENA_FIELD_NAMES);
+  if (!parsed) return null;
+
+  parsed.sourceChannel = sourceChannel;
+  return parsed;
+}
+
 function parseTelemetryMessage(line) {
   if (!line || typeof line !== 'string') return null;
   const trimmed = line.trim();
   if (!trimmed) return null;
+
+  const gs = parseGroundStationFormat(trimmed);
+  if (gs) return gs;
 
   const terrena = parseTerrenaFormat(trimmed);
   if (terrena) return terrena;
@@ -70,6 +85,7 @@ function isTelemetryLine(line) {
   if (!trimmed) return false;
 
   if (/^(XBEE|LORA):\s*\d/si.test(trimmed)) return true;
+  if (/^(XBEE|LORA),\d+,/i.test(trimmed)) return true;
   if (/^\[(XBEE|LORA|PAYLOAD|PRIMARY|SECONDARY)\]/i.test(trimmed)) return true;
 
   const commaCount = (trimmed.match(/,/g) || []).length;
