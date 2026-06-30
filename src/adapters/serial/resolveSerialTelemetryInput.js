@@ -20,6 +20,10 @@ function resolveSerialTelemetryInput(line, { logSerialDebug = () => {}, logTelem
 
     const parsed = parseTelemetryMessage(cleaned);
     if (parsed) {
+        if (parsed.sourceChannel === 'xbee') {
+            logTelemetryDebug('IGNORED_XBEE', parsed);
+            return { type: 'ignored' };
+        }
         logTelemetryDebug('PARSED', parsed);
         return { type: 'telemetry', payload: parsed };
     }

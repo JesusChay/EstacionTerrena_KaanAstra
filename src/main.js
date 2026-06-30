@@ -28,8 +28,6 @@ let latestLandingPrediction = null;
 let latestLandingPredictionDto = null;
 let simulationInterval = null;
 let missionMode = false;
-let lastLoRaEmitTime = 0;
-const TELEMETRY_DEDUP_MS = 3000;
 
 const TELEMETRY_API_URL = process.env.TELEMETRY_API_URL || 'https://kaan-astra-telemetry-api.adriancct13.workers.dev/api/telemetry';
 const TELEMETRY_API_ENABLED = process.env.TELEMETRY_API_ENABLED !== 'false';
@@ -473,14 +471,10 @@ function processPayloadData(message) {
     const now = Date.now();
     const channel = processedTelemetry.sourceChannel;
 
-    // Si XBee y ya se emitió LoRa en los últimos TELEMETRY_DEDUP_MS, no emitir duplicado
-    if (channel === 'xbee' && (now - lastLoRaEmitTime) < TELEMETRY_DEDUP_MS) {
-        logTelemetryDebug('DEDUP', { reason: 'loRa_reciente', channel, lastLoRaEmitTime });
+    // Ignorar XBee — solo usar LoRa durante pruebas
+    if (channel === 'xbee') {
+        logTelemetryDebug('IGNORED_XBEE', { reason: 'solo_loRa', channel });
         return;
-    }
-
-    if (channel === 'lora') {
-        lastLoRaEmitTime = now;
     }
 
     const recLoc = latestReceiverLocationState;
