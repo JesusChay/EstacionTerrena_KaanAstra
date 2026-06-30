@@ -2,6 +2,18 @@ const RECEIVER_FIELD_COUNT = 8;
 
 const FLIGHT_STATUS_MAP = { 0: "IDLE", 1: "FLYING", 2: "LANDED" };
 
+const COORD_RANGE = {
+  latMin: -90, latMax: 90,
+  lonMin: -180, lonMax: 180
+};
+
+function isValidCoordinate(lat, lon) {
+  return Number.isFinite(lat) && Number.isFinite(lon)
+    && (lat !== 0 || lon !== 0)
+    && lat >= COORD_RANGE.latMin && lat <= COORD_RANGE.latMax
+    && lon >= COORD_RANGE.lonMin && lon <= COORD_RANGE.lonMax;
+}
+
 function stripEspLogPrefix(line) {
   const cleaned = line
     .replace(/\x1b\[[0-9;]*m/g, '')
@@ -23,13 +35,14 @@ function parseReceiverCSV(line) {
   const rocketLat = parseFloat(parts[0]);
   const rocketLon = parseFloat(parts[1]);
   const rocketAlt = parseFloat(parts[2]);
-  if (!Number.isFinite(rocketLat) || !Number.isFinite(rocketLon)) return null;
+  if (!isValidCoordinate(rocketLat, rocketLon)) return null;
 
   const flightStatusNum = parseInt(parts[3], 10);
   const alarmActive = parts[4] === '1';
   const timestamp = parseInt(parts[5], 10);
   const groundLat = parseFloat(parts[6]);
   const groundLon = parseFloat(parts[7]);
+  if (!isValidCoordinate(groundLat, groundLon)) return null;
 
   return {
     rocket: {
@@ -47,8 +60,8 @@ function parseReceiverCSV(line) {
       snr: null
     },
     ground: {
-      latitude: Number.isFinite(groundLat) ? groundLat : null,
-      longitude: Number.isFinite(groundLon) ? groundLon : null
+      latitude: groundLat,
+      longitude: groundLon
     },
     wind: null,
     compass: null
@@ -67,4 +80,4 @@ function isReceiverLine(line) {
   return Number.isFinite(firstVal) && Number.isFinite(secondVal);
 }
 
-module.exports = { parseReceiverCSV, isReceiverLine, stripEspLogPrefix };
+module.exports = { isValidCoordinate, parseReceiverCSV, isReceiverLine, stripEspLogPrefix };

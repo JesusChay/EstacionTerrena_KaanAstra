@@ -8,6 +8,15 @@ let rocketMarker = null;
 let groundMarker = null;
 let trajectoryLine = null;
 const trajectoryCoords = [];
+let lastValidRocketCoords = null;
+let lastValidGroundCoords = null;
+
+function isValidCoord(lat, lon) {
+  return Number.isFinite(lat) && Number.isFinite(lon)
+    && (lat !== 0 || lon !== 0)
+    && lat >= -90 && lat <= 90
+    && lon >= -180 && lon <= 180;
+}
 
 export function initMap() {
   if (map) {
@@ -28,8 +37,9 @@ export function updateMap(data) {
 
   const { rocket, ground, flight } = data;
 
-  if (rocket && Number.isFinite(rocket.latitude) && Number.isFinite(rocket.longitude)) {
-    const rLatLng = [rocket.latitude, rocket.longitude];
+  if (rocket && isValidCoord(rocket.latitude, rocket.longitude)) {
+    lastValidRocketCoords = [rocket.latitude, rocket.longitude];
+    const rLatLng = lastValidRocketCoords;
 
     if (rocketMarker) {
       rocketMarker.setLatLng(rLatLng);
@@ -54,8 +64,9 @@ export function updateMap(data) {
     map.setView(rLatLng, map.getZoom());
   }
 
-  if (ground && Number.isFinite(ground.latitude) && Number.isFinite(ground.longitude)) {
-    const gLatLng = [ground.latitude, ground.longitude];
+  if (ground && isValidCoord(ground.latitude, ground.longitude)) {
+    lastValidGroundCoords = [ground.latitude, ground.longitude];
+    const gLatLng = lastValidGroundCoords;
 
     if (groundMarker) {
       groundMarker.setLatLng(gLatLng);

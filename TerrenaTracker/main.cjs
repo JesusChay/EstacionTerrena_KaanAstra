@@ -3,12 +3,13 @@ const path = require("path");
 const fs = require("fs");
 const { SerialPort } = require("serialport");
 const { ReadlineParser } = require("@serialport/parser-readline");
-const { parseReceiverCSV, isReceiverLine } = require("./src/infrastructure/receiverTelemetryParser.cjs");
+const { isValidCoordinate, parseReceiverCSV, isReceiverLine } = require("./src/infrastructure/receiverTelemetryParser.cjs");
 
 let win;
 let serialPort = null;
 let parser = null;
 let simulationInterval = null;
+let lastValidPayloadData = null;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -24,9 +25,7 @@ function createWindow() {
 }
 
 function writeGroundGps(data) {
-  if (data && data.ground && Number.isFinite(data.ground.latitude)
-      && Number.isFinite(data.ground.longitude)
-      && (data.ground.latitude !== 0 || data.ground.longitude !== 0)) {
+  if (data && data.ground && isValidCoordinate(data.ground.latitude, data.ground.longitude)) {
     try {
       fs.writeFileSync(
         path.join(__dirname, "..", "ground-gps.json"),
@@ -41,9 +40,33 @@ function writeGroundGps(data) {
 }
 
 function sendPayloadData(data) {
-  writeGroundGps(data);
+  const rocketValid = data && data.rocket && isValidCoordinate(data.rocket.latitude, data.rocket.longitude);
+  const groundValid = data && data.ground && isValidCoordinate(data.ground.latitude, data.ground.longitude);
+
+  if (!rocketValid && !groundValid) {
+    if (lastValidPayloadData) {
+      writeGroundGps(lastValidPayloadData);
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("payload-data", lastValidPayloadData);
+      }
+    }
+    return;
+  }
+
+  let resultData = data;
+
+  if (!rocketValid && lastValidPayloadData) {
+    resultData = { ...resultData, rocket: { ...lastValidPayloadData.rocket } };
+  }
+
+  if (!groundValid && lastValidPayloadData) {
+    resultData = { ...resultData, ground: { ...lastValidPayloadData.ground } };
+  }
+
+  lastValidPayloadData = resultData;
+  writeGroundGps(resultData);
   if (win && !win.isDestroyed()) {
-    win.webContents.send("payload-data", data);
+    win.webContents.send("payload-data", resultData);
   }
 }
 
