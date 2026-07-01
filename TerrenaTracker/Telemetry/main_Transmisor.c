@@ -472,6 +472,10 @@ void app_main(void) {
             lora_send_telemetry(&payload);
         }
 
+        ESP_LOGI(TAG, "Altitude: %.2f m, Lat: %.7f, Lon: %.7f, State: %d, Alarm: %d", 
+                gps_altitude, gps_latitude, gps_longitude, flight_state, 
+                (flight_state == STATE_LANDED && alarm_started) ? 1 : 0);
+
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }

@@ -1,6 +1,4 @@
-const RECEIVER_FIELD_COUNT = 8;
-
-const FLIGHT_STATUS_MAP = { 0: "IDLE", 1: "FLYING", 2: "LANDED" };
+const RECEIVER_FIELD_COUNT = 10;
 
 const COORD_RANGE = {
   latMin: -90, latMax: 90,
@@ -37,12 +35,13 @@ function parseReceiverCSV(line) {
   const rocketAlt = parseFloat(parts[2]);
   if (!isValidCoordinate(rocketLat, rocketLon)) return null;
 
-  const flightStatusNum = parseInt(parts[3], 10);
-  const alarmActive = parts[4] === '1';
+  const flightStatusText = parts[3];
+  const alarmActive = parts[4] === 'ON';
   const timestamp = parseInt(parts[5], 10);
-  const groundLat = parseFloat(parts[6]);
-  const groundLon = parseFloat(parts[7]);
-  if (!isValidCoordinate(groundLat, groundLon)) return null;
+  const rssi = parseInt(parts[6], 10);
+  const snr = parseInt(parts[7], 10);
+  const groundLat = parseFloat(parts[8]);
+  const groundLon = parseFloat(parts[9]);
 
   return {
     rocket: {
@@ -51,13 +50,13 @@ function parseReceiverCSV(line) {
       altitude: Number.isFinite(rocketAlt) ? rocketAlt : null
     },
     flight: {
-      status: FLIGHT_STATUS_MAP[flightStatusNum] || "UNKNOWN",
+      status: flightStatusText,
       alarm: alarmActive
     },
     signal: {
       timestamp: Number.isFinite(timestamp) ? timestamp : null,
-      rssi: null,
-      snr: null
+      rssi: Number.isFinite(rssi) ? rssi : null,
+      snr: Number.isFinite(snr) ? snr : null
     },
     ground: {
       latitude: groundLat,
