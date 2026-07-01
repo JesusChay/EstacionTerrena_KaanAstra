@@ -434,6 +434,8 @@ ipcMain.handle('send-command', async (event, command) => {
     if (simulationInterval) {
         if (command === 'MISSION_ON') {
             missionMode = true;
+            simulationTelemetrySource.reset();
+            payloadDataLog = [];
             clearInterval(simulationInterval);
             simulationInterval = setInterval(simulateData, 500);
             console.log('🎯 Modo mision activado (simulacion)');

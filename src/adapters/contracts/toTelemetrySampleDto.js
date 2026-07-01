@@ -13,7 +13,7 @@ function toTelemetrySampleDto(processedTelemetry, {
         : new Date(processedTelemetry.observedAt || Date.now());
 
     return createTelemetrySampleDto({
-        time: observedAt.toLocaleTimeString(locale, { timeZone, hour12: false }),
+        time: observedAt.toLocaleTimeString(locale, { timeZone, hour12: false }) + '.' + String(observedAt.getMilliseconds()).padStart(3, '0'),
         speed: Number.isFinite(processedTelemetry.speed) ? (processedTelemetry.speed / 3.6).toFixed(2) : undefined,
         temperature: formatFinite(processedTelemetry.temperature, 2),
         pressure: formatFinite(processedTelemetry.pressure, 2),
