@@ -28,6 +28,7 @@ let latestLandingPrediction = null;
 let latestLandingPredictionDto = null;
 let simulationInterval = null;
 let missionMode = false;
+let missionCommandSentToFirmware = false;
 let lastLoRaEmitTime = 0;
 const TELEMETRY_DEDUP_MS = 3000;
 
@@ -321,6 +322,11 @@ function initializeSerialPort(portName, baudRate = 115200) {
                 return;
             }
 
+            if (resolvedInput.type === 'mission-ack') {
+                handleMissionAck(resolvedInput);
+                return;
+            }
+
             if (resolvedInput.type !== 'telemetry') {
                 return;
             }
@@ -426,13 +432,13 @@ ipcMain.handle('set-receiver-location', async (event, coords) => {
 
 ipcMain.handle('send-command', async (event, command) => {
     if (simulationInterval) {
-        if (command === 'MISSION_START') {
+        if (command === 'MISSION_ON') {
             missionMode = true;
             clearInterval(simulationInterval);
             simulationInterval = setInterval(simulateData, 500);
             console.log('🎯 Modo mision activado (simulacion)');
             broadcastMissionStatus({ active: true, message: 'Mision activa (simulacion)' });
-        } else if (command === 'MISSION_STOP') {
+        } else if (command === 'MISSION_OFF') {
             missionMode = false;
             clearInterval(simulationInterval);
             simulationInterval = setInterval(simulateData, 500);
@@ -446,19 +452,22 @@ ipcMain.handle('send-command', async (event, command) => {
         return { success: false, message: 'No hay puerto serial conectado' };
     }
 
-    serialPort.write(command + '\n', (err) => {
-        if (err) {
-            console.error('❌ Error al enviar comando:', err.message);
-            sendToWindow(dashboardWindow, 'error', 'Error al enviar comando: ' + err.message);
-        }
-    });
-
-    if (command === 'MISSION_START') {
+    if (command === 'MISSION_ON' && !missionCommandSentToFirmware) {
+        serialPort.write('MISSION_ON\n', (err) => {
+            if (err) {
+                console.error('❌ Error al enviar comando:', err.message);
+                sendToWindow(dashboardWindow, 'error', 'Error al enviar comando: ' + err.message);
+            }
+        });
         missionMode = true;
+        missionCommandSentToFirmware = true;
         broadcastMissionStatus({ active: true, message: 'Mision iniciada — esperando confirmacion...' });
-    } else if (command === 'MISSION_STOP') {
+    } else if (command === 'MISSION_ON' && missionCommandSentToFirmware) {
+        missionMode = true;
+        broadcastMissionStatus({ active: true, message: 'Mision activa' });
+    } else if (command === 'MISSION_OFF') {
         missionMode = false;
-        broadcastMissionStatus({ active: false, message: 'Mision detenida' });
+        broadcastMissionStatus({ active: false, message: 'Modo normal' });
     }
 
     return { success: true };
@@ -524,6 +533,21 @@ function handleFlightEvent(resolvedInput) {
     sendToWindow(dashboardWindow, 'simulation-status', {
         message: 'Rele activado con exito'
     });
+}
+
+function handleMissionAck(resolvedInput) {
+    if (!resolvedInput || !resolvedInput.ack) return;
+
+    const ack = resolvedInput.ack.trim().toUpperCase();
+    if (ack === 'MISSION_ON_ACK') {
+        missionMode = true;
+        console.log('✅ Modo mision confirmado por estacion terrena');
+        broadcastMissionStatus({ active: true, message: 'Mision activa (500ms)' });
+    } else if (ack === 'MISSION_OFF_ACK') {
+        missionMode = false;
+        console.log('✅ Modo normal confirmado por estacion terrena');
+        broadcastMissionStatus({ active: false, message: 'Modo normal (3s)' });
+    }
 }
 
 function broadcastReceiverLocationState(receiverLocationState) {

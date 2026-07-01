@@ -62,6 +62,8 @@ static uint32_t xbee_count  = 0;
 static int      xbee_configured = 0;
 
 static bool mission_mode_sent = false;
+static uint8_t xbee_sync_buffer[256];
+static int     xbee_sync_len = 0;
 
 // ============================================
 // FUNCIONES AUXILIARES UART
@@ -192,17 +194,29 @@ static bool validate_cansat_data(cansat_t *data) {
 // ============================================
 static void process_lora_payload(const char *payload_hex) {
     uint8_t raw_data[sizeof(cansat_t)];
-    int len = hex_to_bytes(payload_hex, raw_data, sizeof(cansat_t));
-
-    if (len == (int)sizeof(cansat_t)) {
-        cansat_t *data = (cansat_t *)raw_data;
-        if (validate_cansat_data(data)) {
-            lora_count++;
-            print_cansat_csv(data, "LORA");
+    int len;
+    
+    // Intentar hex primero
+    len = hex_to_bytes(payload_hex, raw_data, sizeof(cansat_t));
+    
+    // Si falla, intentar binario directo
+    if (len != sizeof(cansat_t)) {
+        // Asumir que payload_hex son bytes binarios
+        len = strlen(payload_hex);
+        if (len == sizeof(cansat_t)) {
+            memcpy(raw_data, payload_hex, len);
+        } else {
+            ESP_LOGW(TAG, "Payload LoRa inválido: longitud %d, esperaba %d", 
+                     len, (int)sizeof(cansat_t));
+            return;
         }
-    } else {
-        ESP_LOGW(TAG, "LoRa payload inválido (%d bytes, esperaba %d)",
-                 len, (int)sizeof(cansat_t));
+    }
+
+    // Procesar datos
+    cansat_t *data = (cansat_t *)raw_data;
+    if (validate_cansat_data(data)) {
+        lora_count++;
+        print_cansat_csv(data, "LORA");
     }
 }
 
@@ -314,48 +328,64 @@ void read_lora_data(void) {
     uint8_t uart_data[LORA_BUF_SIZE];
     int len = uart_read_bytes(LORA_UART_PORT, uart_data, LORA_BUF_SIZE - 1, pdMS_TO_TICKS(10));
 
-    if (len > 0) {
-        uart_data[len] = '\0';
+    if (len <= 0) return;
 
-        if (lora_buffer_len + len < LORA_BUF_SIZE - 1) {
-            memcpy(lora_buffer + lora_buffer_len, uart_data, len);
-            lora_buffer_len += len;
+    uart_data[len] = '\0';
+
+    if (strstr((char*)uart_data, "+OK") != NULL ||
+        strstr((char*)uart_data, "+ERR") != NULL ||
+        strstr((char*)uart_data, "AT+") != NULL) {
+        ESP_LOGD(TAG, "Ignorando respuesta AT del LoRa");
+        return;
+    }
+
+    if (lora_buffer_len + len < LORA_BUF_SIZE - 1) {
+        memcpy(lora_buffer + lora_buffer_len, uart_data, len);
+        lora_buffer_len += len;
+        lora_buffer[lora_buffer_len] = '\0';
+    } else {
+        lora_buffer_len = 0;
+        lora_buffer[0] = '\0';
+    }
+
+    bool processed = false;
+    char *rcv = strstr(lora_buffer, "+RCV=");
+    while (rcv != NULL) {
+        char *end = strstr(rcv, "\r\n");
+        if (end == NULL) break;
+
+        *end = '\0';
+
+        int addr, length, rssi, snr;
+        char payload[256] = {0};
+
+        int parsed = sscanf(rcv, "+RCV=%d,%d,%[^,],%d,%d",
+                            &addr, &length, payload, &rssi, &snr);
+
+        if (parsed >= 3 && length == sizeof(cansat_t) * 2) {
+            process_lora_payload(payload);
+            processed = true;
+        } else {
+            ESP_LOGW(TAG, "Payload LoRa inválido: longitud %d, esperaba %d", 
+                     length, (int)sizeof(cansat_t) * 2);
+        }
+
+        char *next = end + 2;
+        int remaining = lora_buffer_len - (int)(next - lora_buffer);
+        if (remaining > 0) {
+            memmove(lora_buffer, next, remaining);
+            lora_buffer_len = remaining;
             lora_buffer[lora_buffer_len] = '\0';
         } else {
+            lora_buffer[0] = '\0';
             lora_buffer_len = 0;
-            lora_buffer[0]  = '\0';
         }
 
-        char *rcv = strstr(lora_buffer, "+RCV=");
-        while (rcv != NULL) {
-            char *end = strstr(rcv, "\r\n");
-            if (end == NULL) break;
+        rcv = strstr(lora_buffer, "+RCV=");
+    }
 
-            *end = '\0';
-
-            int addr, length, rssi, snr;
-            char payload[256] = {0};
-
-            int parsed = sscanf(rcv, "+RCV=%d,%d,%[^,],%d,%d",
-                                &addr, &length, payload, &rssi, &snr);
-
-            if (parsed >= 3) {
-                process_lora_payload(payload);
-            }
-
-            char *next    = end + 2;
-            int remaining = lora_buffer_len - (int)(next - lora_buffer);
-            if (remaining > 0) {
-                memmove(lora_buffer, next, remaining);
-                lora_buffer_len = remaining;
-                lora_buffer[lora_buffer_len] = '\0';
-            } else {
-                lora_buffer[0]  = '\0';
-                lora_buffer_len = 0;
-            }
-
-            rcv = strstr(lora_buffer, "+RCV=");
-        }
+    if (processed) {
+        lora_send_command("AT+RX");
     }
 }
 
@@ -530,62 +560,29 @@ void init_xbee_receiver(void) {
     }
 }
 
-// ⭐⭐⭐ CORRECCIÓN PRINCIPAL: Manejo robusto del buffer XBee ⭐⭐⭐
-void read_xbee_data(void) {
+static void read_xbee_data(void) {
     if (!xbee_configured) return;
-
-    uint8_t uart_data[XBEE_BUF_SIZE];
-    int len = uart_read_bytes(XBEE_UART_PORT, uart_data, XBEE_BUF_SIZE - 1, pdMS_TO_TICKS(10));
+    
+    uint8_t uart_data[64];
+    int len = uart_read_bytes(XBEE_UART_PORT, uart_data, sizeof(uart_data), pdMS_TO_TICKS(10));
 
     if (len > 0) {
-        // Descartar respuestas OK del XBee
-        if (len >= 2 && uart_data[0] == 'O' && uart_data[1] == 'K') {
-            ESP_LOGD(TAG, "Ignorando respuesta OK del XBee");
-            return;
+        for (int i = 0; i < len && xbee_sync_len < sizeof(xbee_sync_buffer); i++) {
+            xbee_sync_buffer[xbee_sync_len++] = uart_data[i];
         }
-
-        // Descartar comandos AT
-        if (len >= 2 && uart_data[0] == 'A' && uart_data[1] == 'T') {
-            ESP_LOGD(TAG, "Ignorando comando AT del XBee");
-            return;
-        }
-
-        // Acumular datos en buffer
-        if (xbee_buffer_len + len < XBEE_BUF_SIZE - 1) {
-            memcpy(xbee_buffer + xbee_buffer_len, uart_data, len);
-            xbee_buffer_len += len;
-            xbee_buffer[xbee_buffer_len] = '\0';
-        } else {
-            ESP_LOGW(TAG, "Buffer XBee lleno, reiniciando");
-            xbee_buffer_len = 0;
-            memset(xbee_buffer, 0, XBEE_BUF_SIZE);
-            return;
-        }
-
-        // Procesar paquetes completos de 38 bytes
-        while (xbee_buffer_len >= (int)sizeof(cansat_t)) {
-            // Intentar procesar los primeros 38 bytes
-            process_xbee_payload((uint8_t*)xbee_buffer, sizeof(cansat_t));
+        
+        while (xbee_sync_len >= sizeof(cansat_t)) {
+            cansat_t *test = (cansat_t*)xbee_sync_buffer;
             
-            // Eliminar los 38 bytes procesados
-            int remaining = xbee_buffer_len - sizeof(cansat_t);
-            if (remaining > 0) {
-                memmove(xbee_buffer, xbee_buffer + sizeof(cansat_t), remaining);
-                xbee_buffer_len = remaining;
-                xbee_buffer[xbee_buffer_len] = '\0';
+            if (validate_cansat_data(test)) {
+                process_xbee_payload((uint8_t*)test, sizeof(cansat_t));
+                memmove(xbee_sync_buffer, xbee_sync_buffer + sizeof(cansat_t), 
+                        xbee_sync_len - sizeof(cansat_t));
+                xbee_sync_len -= sizeof(cansat_t);
             } else {
-                xbee_buffer_len = 0;
-                xbee_buffer[0] = '\0';
+                memmove(xbee_sync_buffer, xbee_sync_buffer + 1, xbee_sync_len - 1);
+                xbee_sync_len--;
             }
-        }
-
-        // Si quedan bytes que no forman un paquete completo y el buffer es grande,
-        // buscar sincronización
-        if (xbee_buffer_len > 0 && xbee_buffer_len < (int)sizeof(cansat_t) && 
-            xbee_buffer_len > XBEE_BUF_SIZE - 100) {
-            ESP_LOGW(TAG, "Buffer XBee con datos parciales, limpiando");
-            xbee_buffer_len = 0;
-            memset(xbee_buffer, 0, XBEE_BUF_SIZE);
         }
     }
 }

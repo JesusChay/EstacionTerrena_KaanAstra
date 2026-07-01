@@ -307,7 +307,7 @@ const missionBtn = document.getElementById('missionBtn');
 const missionStatusText = document.getElementById('missionStatusText');
 
 missionBtn.addEventListener('click', async () => {
-  const command = missionActive ? 'MISSION_STOP' : 'MISSION_START';
+  const command = missionActive ? 'MISSION_OFF' : 'MISSION_ON';
   const result = await window.api.sendCommand(command);
   if (!result.success) {
     showNotification(`Error: ${result.message}`);

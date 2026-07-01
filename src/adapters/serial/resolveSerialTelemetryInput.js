@@ -18,6 +18,11 @@ function resolveSerialTelemetryInput(line, { logSerialDebug = () => {}, logTelem
         return { type: 'flight-event', event: 'decoupling-activated' };
     }
 
+    if (isMissionAckLine(cleaned)) {
+        logTelemetryDebug('MISSION_ACK', { ack: cleaned });
+        return { type: 'mission-ack', ack: cleaned };
+    }
+
     const parsed = parseTelemetryMessage(cleaned);
     if (parsed) {
         logTelemetryDebug('PARSED', parsed);
@@ -41,6 +46,12 @@ function stripEspLogPrefix(line) {
         .replace(/\[[0-9;]+m/gi, '')
         .replace(/^[IWE]\s*\(\d+\)\s+[^:]+:\s*/, '')
         .trim();
+}
+
+function isMissionAckLine(line) {
+    if (!line || typeof line !== 'string') return false;
+    const normalized = line.trim().toUpperCase();
+    return normalized === 'MISSION_ON_ACK' || normalized === 'MISSION_OFF_ACK';
 }
 
 function isDecouplingActivatedLine(line) {
@@ -69,6 +80,7 @@ function normalizeTelemetryEnvelope(line) {
 
 module.exports = {
     isDecouplingActivatedLine,
+    isMissionAckLine,
     resolveSerialTelemetryInput,
     stripEspLogPrefix
 };

@@ -716,24 +716,22 @@ void lora_send_telemetry(cansat_t *data) {
 
 static bool lora_listen_for_commands(void) {
     lora_send_command("AT+RX");
-    vTaskDelay(pdMS_TO_TICKS(100));
 
     char buf[256];
     int idx = 0;
-    memset(buf, 0, sizeof(buf));
-
     TickType_t start = xTaskGetTickCount();
-    while ((xTaskGetTickCount() - start) < pdMS_TO_TICKS(300)) {
-        int len = uart_read_bytes(LORA_UART_PORT, (uint8_t*)&buf[idx], 1, pdMS_TO_TICKS(50));
+
+    while ((xTaskGetTickCount() - start) < pdMS_TO_TICKS(150)) {
+        int len = uart_read_bytes(LORA_UART_PORT, (uint8_t*)&buf[idx],
+                                  sizeof(buf) - 1 - idx, pdMS_TO_TICKS(30));
         if (len > 0) {
             idx += len;
             buf[idx] = '\0';
+            if (strstr(buf, "MISSION_ON") != NULL) return true;
             if (idx >= (int)sizeof(buf) - 1) break;
+        } else {
+            break;
         }
-    }
-
-    if (strstr(buf, "MISSION_ON") != NULL) {
-        return true;
     }
 
     return false;
@@ -1082,18 +1080,23 @@ void app_main(void) {
 
     while (1) {
         uint32_t now_ms = esp_timer_get_time() / 1000;
+        static uint32_t last_loop_ms = 0;
 
-        // ── Leer GPS ──────────────────────────────────────────────────────
+        if (now_ms - last_loop_ms > 150) {
+            ESP_LOGW(TAG, "Loop lento: %lu ms", now_ms - last_loop_ms);
+        }
+        last_loop_ms = now_ms;
+
         read_gps_data();
-
-        // ── Leer sensores GY-87 ──────────────────────────────────────────
         read_gy87_sensors();
 
-        // ── Reintentos periódicos de periféricos fallidos ────────────────
-        bmp180_try_reinit();
-        sd_try_reinit();
+        static uint32_t last_retry_ms = 0;
+        if (now_ms - last_retry_ms > 5000) {
+            bmp180_try_reinit();
+            sd_try_reinit();
+            last_retry_ms = now_ms;
+        }
 
-        // ── Backup en SD (cada SD_WRITE_INTERVAL ciclos de 100ms) ──────
         if (sd_ready) {
             sd_write_counter++;
             if (sd_write_counter >= SD_WRITE_INTERVAL) {
@@ -1102,41 +1105,33 @@ void app_main(void) {
             }
         }
 
-        // ════════════════════════════════════════════════════════════════
-        // 1. XBee: ENVÍA SIEMPRE cada 500ms (INDEPENDIENTE de LoRa)
-        // ════════════════════════════════════════════════════════════════
-        if (now_ms - last_xbee_send_ms >= XBEE_INTERVAL_MS) {
-            xbee_send_telemetry(&telemetry);
-            last_xbee_send_ms = now_ms;
-        }
+        uint32_t lora_interval = mission_mode ? 500 : 3000;
 
-        // ════════════════════════════════════════════════════════════════
-        // 2. LoRa: ENVÍA según el modo (Normal=3000ms, Misión=500ms)
-        // ════════════════════════════════════════════════════════════════
-        uint32_t lora_interval = mission_mode 
-                               ? LORA_INTERVAL_MISSION_MS   // 500ms en modo misión
-                               : LORA_INTERVAL_NORMAL_MS;    // 3000ms en modo normal
-
+        // LoRa
         if (now_ms - last_lora_send_ms >= lora_interval) {
-            // Solo enviar si hay presupuesto de duty cycle
             if (!lora_disabled && lora_budget_available()) {
                 lora_send_telemetry(&telemetry);
-                
-                // Escuchar comandos de la terrena después de cada TX
+            }
+            last_lora_send_ms = now_ms;
+        }
+
+        // Escuchar comandos cada 5s (no tras cada envío LoRa)
+        static uint32_t last_listen_ms = 0;
+        if (now_ms - last_listen_ms >= 5000) {
+            last_listen_ms = now_ms;
+            if (!lora_disabled && lora_budget_available()) {
                 bool cmd_received = lora_listen_for_commands();
                 if (cmd_received && !mission_mode) {
                     mission_mode = true;
-                    ESP_LOGI(TAG, ">>> MODO MISIÓN ACTIVADO (LoRa cada 500ms) <<<");
-                }
-            } else if (lora_disabled) {
-                static uint32_t last_lora_warn = 0;
-                if (now_ms - last_lora_warn > 10000) {
-                    ESP_LOGW(TAG, "LoRa deshabilitado. XBee y sensores operando normalmente.");
-                    last_lora_warn = now_ms;
+                    ESP_LOGI(TAG, ">>> MODO MISIÓN ACTIVADO <<<");
                 }
             }
-            
-            last_lora_send_ms = now_ms;
+        }
+
+        if (now_ms - last_xbee_send_ms >= XBEE_INTERVAL_MS) {
+            xbee_send_telemetry(&telemetry);
+            last_xbee_send_ms = now_ms;
+            ESP_LOGD(TAG, "XBEE enviado en t=%lu", now_ms);
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
